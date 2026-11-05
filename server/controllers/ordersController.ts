@@ -165,13 +165,13 @@ export const getAllOrders = async (req: Request, res: Response) => {
     const total = await Order.countDocuments(query);
     const order = await Order.find(query)
       .populate("user", "name email")
-      .populate("ite,s.product", "name")
+      .populate("items.product", "name")
       .sort("-createdAt")
       .skip((Number(page) - 1) * Number(limit));
 
     res.json({
       success: true,
-      data: getOrders,
+      data: order,
       pagination: {
         total,
         page: Number(page),
