@@ -1,21 +1,20 @@
 import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExternalLink } from '@/components/external-link';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Collapsible } from '@/components/ui/collapsible';
 import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import BrandLogo from '@/components/BrandLogo';
 
 export default function TabTwoScreen() {
-  const safeAreaInsets = useSafeAreaInsets();
   const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
+    top: 0, left: 0, right: 0,
+    bottom: Spacing.three,
   };
   const theme = useTheme();
 
@@ -39,6 +38,7 @@ export default function TabTwoScreen() {
       contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
       <ThemedView style={styles.container}>
         <ThemedView style={styles.titleContainer}>
+          <BrandLogo size={88} />
           <ThemedText type="subtitle">Explore</ThemedText>
           <ThemedText style={styles.centerText} themeColor="textSecondary">
             This starter app includes example{'\n'}code to help you get started.
@@ -81,8 +81,10 @@ export default function TabTwoScreen() {
                 project.
               </ThemedText>
               <Image
-                source={require('@/assets/images/tutorial-web.png')}
+                source={require('../../assets/images/Neon Purple Marketplace Delivery Icon.png')}
                 style={styles.imageTutorial}
+                contentFit="contain"
+                accessibilityLabel="NearBy marketplace logo"
               />
             </ThemedView>
           </Collapsible>
@@ -93,7 +95,7 @@ export default function TabTwoScreen() {
               <ThemedText type="code">@3x</ThemedText> suffixes to provide files for different
               screen densities.
             </ThemedText>
-            <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
+            <BrandLogo size={100} />
             <ExternalLink href="https://reactnative.dev/docs/images">
               <ThemedText type="linkPrimary">Learn more</ThemedText>
             </ExternalLink>
@@ -168,7 +170,8 @@ const styles = StyleSheet.create({
   },
   imageTutorial: {
     width: '100%',
-    aspectRatio: 296 / 171,
+    aspectRatio: 1,
+    maxWidth: 280,
     borderRadius: Spacing.three,
     marginTop: Spacing.two,
   },

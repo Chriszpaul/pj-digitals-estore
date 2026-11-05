@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "TDP Store Delivery",
+    "slug": "tdpstore-delivery",
+    "scheme": "tdpstore-delivery",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true }
+  }
+}

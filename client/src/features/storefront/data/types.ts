@@ -1,0 +1,32 @@
+export type Category = 'Electronics' | 'Textiles' | 'Home Appliances' | 'Computer Items' | 'Other';
+export type CategoryFilter = 'All' | Category;
+export type StoreId = 'all' | 'vv' | 'sr' | 'textiles' | 'catalogue';
+export type DeliveryLocation = 'Thodupuzha, Idukki' | 'Muttom, Idukki';
+export type Store = { id: StoreId; name: string; area: string; icon: string; category?: Category; location?: DeliveryLocation };
+export type Product = {
+  id: string;
+  name: string;
+  category: Category;
+  price: number;
+  stock?: number;
+  oldPrice?: number | null;
+  emoji?: string;
+  color?: string;
+  rating?: string;
+  tag?: string;
+  store: Exclude<StoreId, 'all'>;
+  description?: string;
+  images?: string[];
+  sizes?: string[];
+  serverCategory?: string;
+};
+export type Order = {
+  deliveryAddress?: { id: string; name: string; phone: string; address: string; pincode: string; location: DeliveryLocation };
+  paymentMethod?: 'UPI' | 'Card';
+  paymentStatus?: string;
+  id: string;
+  date: string;
+  total: number;
+  items: Array<{ id: string; name: string; quantity: number }>;
+};
+export type Tab = 'Home' | 'Shop' | 'Supermarket' | 'Shops' | 'Cart' | 'Payment' | 'More' | 'Favorites' | 'Orders' | 'History' | 'Addresses' | 'Account' | 'Customer Care' | 'Add Item';

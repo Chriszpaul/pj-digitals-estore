@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "userInterfaceStyle": "light",
+    "scheme": "tdpstore-partner",
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "plugins": [
+      "expo-router",
+      "expo-status-bar"
+    ],
+    "slug": "tdpstore-shop",
+    "version": "1.0.0",
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F5F0E4",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      }
+    },
+    "name": "TDP Store Shop"
+  }
+}
+

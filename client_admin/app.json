@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "TDP Store Admin",
+    "slug": "tdpstore-admin",
+    "scheme": "tdpstore-admin",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true }
+  }
+}

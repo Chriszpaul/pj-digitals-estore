@@ -18,3 +18,9 @@ server/.env
 
 # OS
 .DS_Store   
+# Expo local state and development cache
+/.expo/
+/client/.expo/
+/client_shop/.expo/
+/client_admin/.expo/
+/client_delivery/.expo/
