@@ -65,6 +65,7 @@ export const createOrder = async (req: Request, res: Response) => {
     );
 
     if (!cart || cart.items.length === 0) {
+      return res.status(400).json({ success: false, message: "Cart is empty" });
     }
 
     // Verify stock nd prepare order items
