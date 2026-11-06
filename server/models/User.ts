@@ -4,10 +4,11 @@ import { IUser } from "../types/index.js";
 const userSchema = new mongoose.Schema<IUser>(
   {
     name: { type: String, trim: true },
-    email: { type: String, trim: true, unique: true },
-    clerkId: { type: String, sparse: true, unique: true },
+    // sparse: users without an email must not collide on `null`
+    email: { type: String, trim: true, lowercase: true, unique: true, sparse: true },
+    clerkId: { type: String, unique: true, sparse: true },
     image: { type: String },
-    role: { type: String, enum: ["user", "admin"], default: "user" },
+    role: { type: String, enum: ["user", "admin", "dealer"], default: "user" },
   },
   { timestamps: true },
 );

@@ -1,5 +1,6 @@
 import express from "express";
 import { protect } from "../middleware/auth.js";
+import { validateObjectId } from "../middleware/validate.js";
 import {
   addToCart,
   clearCart,
@@ -10,19 +11,13 @@ import {
 
 const CartRouter = express.Router();
 
-// get user cart
-CartRouter.get("/", protect, getCart);
+CartRouter.use(protect);
 
-// add item to cart
-CartRouter.post("/add", protect, addToCart);
-
-// update cart item quantity
-CartRouter.put("/item/:productId", protect, updateCartItems);
-
-// remove cart item quantity
-CartRouter.delete("/item/:productId", removeCartItem);
-
-// clear cart
-CartRouter.delete("/", protect, clearCart);
+CartRouter.get("/", getCart);
+CartRouter.post("/add", addToCart);
+CartRouter.put("/item/:productId", validateObjectId("productId"), updateCartItems);
+// (this route was missing `protect`, so req.user was undefined and it crashed)
+CartRouter.delete("/item/:productId", validateObjectId("productId"), removeCartItem);
+CartRouter.delete("/", clearCart);
 
 export default CartRouter;
