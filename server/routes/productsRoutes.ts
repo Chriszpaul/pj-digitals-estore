@@ -7,38 +7,36 @@ import {
   updateProduct,
 } from "../controllers/productController.js";
 import upload from "../middleware/upload.js";
-import { authorize, protect } from "../middleware/auth.js";
+import { authorize, optionalAuth, protect } from "../middleware/auth.js";
+import { validateObjectId } from "../middleware/validate.js";
 
 const ProductRouter = express.Router();
 
-// Get all products
-ProductRouter.get("/", getProducts);
+// Public (optionalAuth lets admins see inactive products)
+ProductRouter.get("/", optionalAuth, getProducts);
+ProductRouter.get("/:id", validateObjectId("id"), optionalAuth, getProduct);
 
-// Get single product
-ProductRouter.get("/:id", getProduct);
-
-// Create product (Admin)
+// Admin - auth runs BEFORE multer so anonymous users can't push uploads
 ProductRouter.post(
   "/",
-  upload.array("images", 5),
   protect,
   authorize("admin"),
+  upload.array("images", 5),
   createProduct,
 );
 
-// Update product (Admin)
 ProductRouter.put(
   "/:id",
-  upload.array("images", 5),
+  validateObjectId("id"),
   protect,
   authorize("admin"),
+  upload.array("images", 5),
   updateProduct,
 );
 
-// Delete product (Admin)
 ProductRouter.delete(
   "/:id",
-
+  validateObjectId("id"),
   protect,
   authorize("admin"),
   deleteProduct,

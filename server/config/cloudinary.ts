@@ -16,13 +16,7 @@ cloudinary.config({
   api_key: apiKey,
   api_secret: apiSecret,
   secure: true,
-  debug: true,
 });
 
-console.log("Cloudinary configuration loaded:", {
-  cloudName,
-  apiKeyPresent: Boolean(apiKey),
-  apiSecretPresent: Boolean(apiSecret),
-});
 
 export default cloudinary;

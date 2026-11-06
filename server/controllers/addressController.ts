@@ -1,21 +1,28 @@
 import Address from "../models/Address.js";
 import { Request, Response } from "express";
+import { sendError } from "../utils/http.js";
 
-// Get user address
+const FIELDS = ["type", "fullName", "phone", "street", "city", "state", "zipCode", "country"] as const;
+
+const pickFields = (body: any) => {
+  const out: Record<string, any> = {};
+  for (const f of FIELDS) {
+    if (body[f] !== undefined) out[f] = typeof body[f] === "string" ? body[f].trim() : body[f];
+  }
+  return out;
+};
+
+// Get user addresses
 // GET /api/address
 export const getAddress = async (req: Request, res: Response) => {
   try {
-    const address = await Address.find({ user: req.user._id }).sort({
+    const addresses = await Address.find({ user: req.user._id }).sort({
       isDefault: -1,
       createdAt: -1,
     });
-    res.json({ success: true, data: address });
-    if (!address) {
-      return res.status(404).json({ message: "Address not found" });
-    }
-    res.json(address);
+    res.json({ success: true, data: addresses });
   } catch (error) {
-    res.status(500).json({ message: "Error fetching address" });
+    sendError(res, error, "Error fetching address");
   }
 };
 
@@ -23,25 +30,24 @@ export const getAddress = async (req: Request, res: Response) => {
 // POST /api/address
 export const addAddress = async (req: Request, res: Response) => {
   try {
-    const { type, street, city, state, zipCode, isDefault } = req.body;
+    const data = pickFields(req.body);
+    const existingCount = await Address.countDocuments({ user: req.user._id });
+
+    // first address is always the default
+    const isDefault = existingCount === 0 ? true : Boolean(req.body.isDefault);
     if (isDefault) {
       await Address.updateMany({ user: req.user._id }, { isDefault: false });
     }
 
     const newAddress = await Address.create({
+      ...data,
       user: req.user._id,
-      type,
-      street,
-      city,
-      state,
-      zipCode,
-      isDefault: isDefault || false,
+      isDefault,
     });
 
-    // await newAddress.save();
     res.status(201).json({ success: true, data: newAddress });
   } catch (error) {
-    res.status(500).json({ message: "Error adding address" });
+    sendError(res, error, "Error adding address");
   }
 };
 
@@ -49,45 +55,35 @@ export const addAddress = async (req: Request, res: Response) => {
 // PUT /api/address/:id
 export const updateAddress = async (req: Request, res: Response) => {
   try {
-    const { type, street, city, state, zipCode, isDefault } = req.body;
+    const address = await Address.findById(req.params.id);
 
-    let addressItem = await Address.findById(req.params.id);
-
-    if (!addressItem) {
+    if (!address) {
       return res
         .status(404)
         .json({ success: false, message: "Address not found" });
     }
 
-    // ensure user owns address
-    if (addressItem.user.toString() !== req.user._id.toString()) {
-      return res.status(401).json({
+    if (address.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
         success: false,
         message: "Not authorized to update this address",
       });
     }
 
-    if (isDefault) {
-      await Address.updateMany({ user: req.user._id }, { isDefault: false });
+    if (req.body.isDefault === true || req.body.isDefault === "true") {
+      await Address.updateMany(
+        { user: req.user._id, _id: { $ne: address._id } },
+        { isDefault: false },
+      );
+      address.isDefault = true;
     }
 
-    addressItem = await Address.findByIdAndUpdate(
-      req.params.id,
-      {
-        type,
-        street,
-        city,
-        state,
-        zipCode,
-        isDefault,
-      },
-      { new: true },
-    );
+    address.set(pickFields(req.body));
+    await address.save();
 
-    // await newAddress.save();
-    res.status(201).json({ success: true, data: addressItem });
+    res.json({ success: true, data: address });
   } catch (error) {
-    res.status(500).json({ message: "Error adding address" });
+    sendError(res, error, "Error updating address");
   }
 };
 
@@ -103,19 +99,26 @@ export const deleteAddress = async (req: Request, res: Response) => {
         .json({ success: false, message: "Address not found" });
     }
 
-    // ensure user owns address
     if (address.user.toString() !== req.user._id.toString()) {
-      return res.status(401).json({
+      return res.status(403).json({
         success: false,
-        message: "Not authorized to update this address",
+        message: "Not authorized to delete this address",
       });
     }
 
     await address.deleteOne();
 
-    // await newAddress.save();
-    res.json({ message: "address removed" }); 
+    // keep one default around
+    if (address.isDefault) {
+      const next = await Address.findOne({ user: req.user._id }).sort("-createdAt");
+      if (next) {
+        next.isDefault = true;
+        await next.save();
+      }
+    }
+
+    res.json({ success: true, message: "Address removed" });
   } catch (error) {
-    res.status(500).json({ message: "Error adding address" });
+    sendError(res, error, "Error deleting address");
   }
 };

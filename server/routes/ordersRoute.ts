@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  cancelOrder,
   createOrder,
   getAllOrders,
   getOrder,
@@ -7,22 +8,20 @@ import {
   updateOrderStatus,
 } from "../controllers/ordersController.js";
 import { authorize, protect } from "../middleware/auth.js";
+import { validateObjectId } from "../middleware/validate.js";
 
 const OrderRouter = express.Router();
 
-// Get user orders
-OrderRouter.get("/", protect, getOrders);
+OrderRouter.use(protect);
 
-// Get single orders
-OrderRouter.get("/:id", protect, getOrder);
+OrderRouter.get("/", getOrders);
+OrderRouter.post("/", createOrder);
 
-// create orders from cart
-OrderRouter.post("/", protect, createOrder);
+// admin (declared before "/:id" routes)
+OrderRouter.get("/admin/all", authorize("admin"), getAllOrders);
+OrderRouter.put("/:id/status", authorize("admin"), validateObjectId("id"), updateOrderStatus);
 
-// Update order status (admin)
-OrderRouter.put("/:id/status", protect, authorize("admin"), updateOrderStatus);
-
-// Get all order (admin)
-OrderRouter.get("/admin/all", protect, authorize("admin"), getAllOrders);
+OrderRouter.get("/:id", validateObjectId("id"), getOrder);
+OrderRouter.put("/:id/cancel", validateObjectId("id"), cancelOrder);
 
 export default OrderRouter;
