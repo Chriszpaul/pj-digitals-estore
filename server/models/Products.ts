@@ -16,6 +16,12 @@ const productSchema = new Schema<IProduct>(
       enum: PRODUCT_CATEGORIES,
       default: "Other",
     },
+    // which shop sells this product (null = platform/admin product)
+    shop: { type: Schema.Types.ObjectId, ref: "Shop", index: true },
+    ratings: {
+      average: { type: Number, default: 0 },
+      count: { type: Number, default: 0 },
+    },
     stock: { type: Number, required: true, default: 0, min: 0 },
     isFeatured: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },

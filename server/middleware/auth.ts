@@ -1,8 +1,11 @@
 import { NextFunction, Request, Response } from "express";
 import { clerkClient } from "@clerk/express";
 import User from "../models/User.js";
+import Shop from "../models/Shop.js";
+import DeliveryPartner from "../models/DeliveryPartner.js";
+import { ROLES } from "../types/index.js";
 
-const VALID_ROLES = ["user", "admin", "dealer"];
+const VALID_ROLES: readonly string[] = ROLES;
 
 /**
  * Requires a signed-in Clerk user. If the user isn't in our DB yet (e.g. the
@@ -79,3 +82,61 @@ export const authorize = (...roles: string[]) => {
     next();
   };
 };
+
+/**
+ * Loads the signed-in user's shop into req.shop.
+ * `requireApproved` (default true) blocks pending/rejected/suspended shops.
+ */
+export const loadShop =
+  (requireApproved = true) =>
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const shop: any = await Shop.findOne({ owner: req.user._id });
+      if (!shop) {
+        return res
+          .status(404)
+          .json({ success: false, message: "You don't have a shop yet" });
+      }
+      if (requireApproved && shop.status !== "approved") {
+        return res.status(403).json({
+          success: false,
+          message: `Your shop is ${shop.status}`,
+          shopStatus: shop.status,
+          reason: shop.statusReason,
+        });
+      }
+      req.shop = shop;
+      next();
+    } catch (error) {
+      console.error("loadShop error:", error);
+      res.status(500).json({ success: false, message: "failed to load shop" });
+    }
+  };
+
+/** Loads the signed-in user's delivery-partner profile into req.driver. */
+export const loadDriver =
+  (requireApproved = true) =>
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const driver: any = await DeliveryPartner.findOne({ user: req.user._id });
+      if (!driver) {
+        return res.status(404).json({
+          success: false,
+          message: "You don't have a delivery-partner profile yet",
+        });
+      }
+      if (requireApproved && driver.status !== "approved") {
+        return res.status(403).json({
+          success: false,
+          message: `Your delivery-partner account is ${driver.status}`,
+          partnerStatus: driver.status,
+          reason: driver.statusReason,
+        });
+      }
+      req.driver = driver;
+      next();
+    } catch (error) {
+      console.error("loadDriver error:", error);
+      res.status(500).json({ success: false, message: "failed to load profile" });
+    }
+  };

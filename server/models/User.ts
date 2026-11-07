@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { IUser } from "../types/index.js";
+import { IUser, ROLES } from "../types/index.js";
 
 const userSchema = new mongoose.Schema<IUser>(
   {
@@ -8,7 +8,9 @@ const userSchema = new mongoose.Schema<IUser>(
     email: { type: String, trim: true, lowercase: true, unique: true, sparse: true },
     clerkId: { type: String, unique: true, sparse: true },
     image: { type: String },
-    role: { type: String, enum: ["user", "admin", "dealer"], default: "user" },
+    role: { type: String, enum: ROLES, default: "user" },
+    // Expo push tokens for phone notification-bar alerts
+    pushTokens: [{ type: String }],
   },
   { timestamps: true },
 );

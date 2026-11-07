@@ -17,6 +17,8 @@ const AddressSchema = new mongoose.Schema<IAddress>({
   state: { type: String, required: true, trim: true },
   zipCode: { type: String, required: true, trim: true },
   country: { type: String, required: true, trim: true, default: "India" },
+  location: { type: String, trim: true }, // service location (Thodupuzha / Muttom)
+  landmark: { type: String, trim: true },
   isDefault: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
 });

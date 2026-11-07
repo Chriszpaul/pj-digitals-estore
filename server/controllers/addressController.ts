@@ -2,7 +2,7 @@ import Address from "../models/Address.js";
 import { Request, Response } from "express";
 import { sendError } from "../utils/http.js";
 
-const FIELDS = ["type", "fullName", "phone", "street", "city", "state", "zipCode", "country"] as const;
+const FIELDS = ["type", "fullName", "phone", "street", "city", "state", "zipCode", "country", "location", "landmark"] as const;
 
 const pickFields = (body: any) => {
   const out: Record<string, any> = {};

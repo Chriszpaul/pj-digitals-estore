@@ -1,6 +1,13 @@
 import { Request, Response } from "express";
-import { clerkClient } from "@clerk/express";
 import User from "../models/User.js";
+import Shop from "../models/Shop.js";
+import DeliveryPartner from "../models/DeliveryPartner.js";
+import Delivery from "../models/Delivery.js";
+import Advertisement from "../models/Advertisement.js";
+import Ticket from "../models/Ticket.js";
+import { ROLES } from "../types/index.js";
+import { setUserRole } from "../utils/roles.js";
+import { logActivity } from "../utils/activity.js";
 import Product from "../models/Products.js";
 import Order from "../models/Order.js";
 import { escapeRegex, sendError } from "../utils/http.js";
@@ -19,6 +26,12 @@ export const getDashboardStats = async (_req: Request, res: Response) => {
       statusAgg,
       lowStock,
       recentOrders,
+      pendingShops,
+      pendingPartners,
+      pendingAds,
+      openTickets,
+      activeDeliveries,
+      unassignedOrders,
     ] = await Promise.all([
       User.countDocuments(),
       Product.countDocuments(),
@@ -35,6 +48,12 @@ export const getDashboardStats = async (_req: Request, res: Response) => {
         .sort("stock")
         .limit(10),
       Order.find().sort("-createdAt").limit(5).populate("user", "name email"),
+      Shop.countDocuments({ status: "pending" }),
+      DeliveryPartner.countDocuments({ status: "pending" }),
+      Advertisement.countDocuments({ status: "pending" }),
+      Ticket.countDocuments({ status: { $in: ["open", "in_progress"] } }),
+      Delivery.countDocuments({ status: { $in: ["assigned", "accepted", "picked_up", "on_the_way"] } }),
+      Order.countDocuments({ orderStatus: { $in: ["placed", "processing"] }, $or: [{ paymentMethod: "cod" }, { paymentStatus: "paid" }] }),
     ]);
 
     res.json({
@@ -47,6 +66,13 @@ export const getDashboardStats = async (_req: Request, res: Response) => {
         ordersByStatus: Object.fromEntries(statusAgg.map((s) => [s._id, s.count])),
         lowStockProducts: lowStock,
         recentOrders,
+        pending: {
+          shops: pendingShops,
+          deliveryPartners: pendingPartners,
+          advertisements: pendingAds,
+          supportTickets: openTickets,
+        },
+        deliveries: { active: activeDeliveries, ordersAwaitingAssignment: unassignedOrders },
       },
     });
   } catch (error) {
@@ -91,10 +117,10 @@ export const getUsers = async (req: Request, res: Response) => {
 export const updateUserRole = async (req: Request, res: Response) => {
   try {
     const { role } = req.body;
-    if (!["user", "admin", "dealer"].includes(role)) {
+    if (!(ROLES as readonly string[]).includes(role)) {
       return res
         .status(400)
-        .json({ success: false, message: "role must be user, admin or dealer" });
+        .json({ success: false, message: `role must be one of: ${ROLES.join(", ")}` });
     }
     if (req.params.id === req.user._id.toString()) {
       return res
@@ -102,16 +128,14 @@ export const updateUserRole = async (req: Request, res: Response) => {
         .json({ success: false, message: "You can't change your own role" });
     }
 
-    const user = await User.findByIdAndUpdate(req.params.id, { role }, { new: true });
+    const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    if (user.clerkId) {
-      await clerkClient.users
-        .updateUserMetadata(user.clerkId, { publicMetadata: { role } })
-        .catch((e: any) => console.error("Clerk metadata sync failed:", e.message));
-    }
+    const before = user.role;
+    await setUserRole(user, role);
+    await logActivity(req, "user.role_changed", "User", user._id, { from: before, to: role });
 
     res.json({ success: true, data: user });
   } catch (error) {
