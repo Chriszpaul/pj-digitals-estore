@@ -30,3 +30,11 @@
 - Order status stays `shipping` (what the model used), not `shipped`.
 - Mongo won't change existing indexes: drop the old unique index on `addresses.user` (`db.addresses.dropIndex("user_1")`).
 - Run `pnpm install && pnpm typecheck` - I couldn't type-check here because dependencies can't be installed in this environment.
+
+## Online payments (Razorpay) - added in the second round
+- `utils/razorpay.ts` (no SDK needed: fetch + HMAC), `controllers/paymentController.ts`, `routes/paymentRoutes.ts`.
+- One Razorpay order per checkout (a checkout can contain one order per shop); `POST /api/payments/verify`, `POST /api/payments/create` (retry), webhook `POST /api/razorpay/webhook`.
+- Webhook is signature-checked on the raw body and rejects events whose amount differs from what was charged.
+- A payment that arrives after an unpaid order expired is recorded as paid on the cancelled order, so it shows up in the reconciliation report ("paid but cancelled") and admins are notified to refund it.
+- Shops no longer see or accept unpaid online orders, and are notified only once the payment succeeds.
+- `ALLOW_COD=false` hides cash on delivery. See `API.md` for the endpoint list.

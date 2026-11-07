@@ -15,8 +15,38 @@ export const PRODUCT_CATEGORIES = [
   "Laptop",
   "Accessories",
   "Electronics",
+  "Textiles",
+  "Home Appliances",
   "Other",
 ] as const;
+
+export const ROLES = [
+  "user",
+  "admin",
+  "dealer", // legacy role, kept for existing data
+  "shop_owner",
+  "delivery_partner",
+] as const;
+export const SERVICE_LOCATIONS = ["Thodupuzha", "Muttom"] as const;
+export const SHOP_STATUSES = ["pending", "approved", "rejected", "suspended"] as const;
+export const PARTNER_STATUSES = ["pending", "approved", "rejected", "suspended"] as const;
+export const DELIVERY_STATUSES = [
+  "assigned",
+  "accepted",
+  "picked_up",
+  "on_the_way",
+  "delivered",
+  "failed",
+  "rejected",
+  "cancelled",
+] as const;
+export const AD_STATUSES = ["draft", "pending", "approved", "rejected"] as const;
+export const TICKET_STATUSES = ["open", "in_progress", "resolved", "closed"] as const;
+export const TICKET_CATEGORIES = ["order", "payment", "delivery", "account", "shop", "other"] as const;
+export const SETTLEMENT_STATUSES = ["pending", "paid"] as const;
+export const VEHICLE_TYPES = ["bike", "scooter", "bicycle", "car", "van", "other"] as const;
+
+export type Role = (typeof ROLES)[number];
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
@@ -33,6 +63,8 @@ export interface IAddress extends Document {
   state: string;
   zipCode: string;
   country: string;
+  location?: string; // service location, e.g. Thodupuzha / Muttom
+  landmark?: string;
   isDefault: boolean;
   createdAt: Date;
 }
@@ -74,7 +106,13 @@ export interface IOrder extends Document {
     state: string;
     zipCode: string;
     country: string;
+    location?: string;
+    landmark?: string;
   };
+  shop?: Types.ObjectId;
+  checkoutId?: string;
+  settlement?: Types.ObjectId;
+  paymentOption?: string;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   currency: string;
@@ -104,6 +142,8 @@ export interface IProduct extends Document {
   images: string[];
   sizes: string[];
   category: ProductCategory;
+  shop?: Types.ObjectId;
+  ratings: { average: number; count: number };
   stock: number;
   isFeatured: boolean;
   isActive: boolean;
@@ -116,7 +156,8 @@ export interface IUser extends Document {
   email: string;
   clerkId: string;
   image?: string;
-  role: "user" | "admin" | "dealer";
+  role: Role;
+  pushTokens: string[];
   createdAt: Date;
   updatedAt: Date;
 }

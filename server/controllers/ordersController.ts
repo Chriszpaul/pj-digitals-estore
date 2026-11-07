@@ -2,21 +2,52 @@ import { Request, Response } from "express";
 import Order from "../models/Order.js";
 import Cart from "../models/Cart.js";
 import Address from "../models/Address.js";
+import Shop from "../models/Shop.js";
+import Delivery from "../models/Delivery.js";
+import DeliveryPartner from "../models/DeliveryPartner.js";
 import {
   ORDER_STATUSES,
   PAYMENT_STATUSES,
   PaymentMethod,
 } from "../types/index.js";
-import { escapeRegex, HttpError, sendError } from "../utils/http.js";
+import { escapeRegex, HttpError, round2, sendError } from "../utils/http.js";
 import { computeTotals } from "../utils/pricing.js";
 import {
+  attachDeliveries,
+  generateCheckoutId,
   generateOrderNumber,
   reserveStock,
   restoreOrderStock,
   restoreStockLines,
+  transitionOrder,
 } from "../utils/orderHelpers.js";
+import { notify } from "../utils/notify.js";
+import { logActivity } from "../utils/activity.js";
+import { allowCod } from "../utils/config.js";
+import { razorpayConfigured } from "../utils/razorpay.js";
+import { createCheckoutPayment } from "./paymentController.js";
 
-const ADDRESS_FIELDS = ["fullName", "phone", "street", "city", "state", "zipCode", "country"];
+const ADDRESS_FIELDS = [
+  "fullName",
+  "phone",
+  "street",
+  "city",
+  "state",
+  "zipCode",
+  "country",
+  "location",
+  "landmark",
+];
+
+// The customer app offers UPI / Card (online). All online options are paid
+// through Razorpay; COD is still supported by the backend.
+const ONLINE_OPTIONS = ["razorpay", "online", "upi", "card", "netbanking", "wallet"];
+const normalizePaymentMethod = (value: any): PaymentMethod | null => {
+  const v = String(value || "cod").toLowerCase();
+  if (v === "cod" || v === "cash") return "cod";
+  if (ONLINE_OPTIONS.includes(v)) return "razorpay";
+  return null;
+};
 
 // Resolve the shipping address from either a saved address id or an inline object
 const resolveShippingAddress = async (req: Request) => {
@@ -48,22 +79,23 @@ export const getOrders = async (req: Request, res: Response) => {
   try {
     const orders = await Order.find({ user: req.user._id })
       .populate("items.product", "name images")
+      .populate("shop", "name phone location")
       .sort("-createdAt");
 
-    res.json({ success: true, data: orders });
+    res.json({ success: true, data: await attachDeliveries(orders) });
   } catch (error) {
     sendError(res, error, "Failed to fetch orders");
   }
 };
 
-// Get single order
+// Get single order (customer, admin, the order's shop owner, or its assigned driver)
 // GET /api/orders/:id
 export const getOrder = async (req: Request, res: Response) => {
   try {
-    const order = await Order.findById(req.params.id).populate(
-      "items.product",
-      "name images",
-    );
+    const order: any = await Order.findById(req.params.id)
+      .populate("items.product", "name images")
+      .populate("shop", "name phone location addressLine")
+      .populate("user", "name email");
 
     if (!order) {
       return res
@@ -71,31 +103,53 @@ export const getOrder = async (req: Request, res: Response) => {
         .json({ success: false, message: "Order not found" });
     }
 
-    if (
-      order.user.toString() !== req.user._id.toString() &&
-      req.user.role !== "admin"
-    ) {
+    const customerId = (order.user?._id ?? order.user).toString();
+    let allowed = customerId === req.user._id.toString() || req.user.role === "admin";
+
+    if (!allowed && order.shop) {
+      const shop = await Shop.findOne({ owner: req.user._id }).select("_id");
+      allowed = !!shop && shop._id.toString() === (order.shop._id ?? order.shop).toString();
+    }
+    if (!allowed) {
+      const driver = await DeliveryPartner.findOne({ user: req.user._id }).select("_id");
+      if (driver) allowed = !!(await Delivery.exists({ order: order._id, driver: driver._id }));
+    }
+    if (!allowed) {
       return res.status(403).json({ success: false, message: "Not authorized" });
     }
 
-    // (this used to return status 403 even on success)
-    return res.json({ success: true, data: order });
+    const [withDelivery] = await attachDeliveries([order]);
+    return res.json({ success: true, data: withDelivery });
   } catch (error) {
     sendError(res, error, "Failed to fetch order");
   }
 };
 
-// Create order from cart
+// Create orders from the cart. The cart is split into ONE ORDER PER SHOP
+// (each shop fulfils and is paid separately); orders from the same checkout
+// share a `checkoutId`.
 // POST /api/orders   body: { addressId | shippingAddress, paymentMethod?, notes? }
 export const createOrder = async (req: Request, res: Response) => {
   let reserved: { product: any; quantity: number }[] = [];
+  let checkoutId = "";
   try {
-    let paymentMethod = String(req.body.paymentMethod || "cod").toLowerCase();
-    if (paymentMethod === "cash") paymentMethod = "cod"; // legacy alias
-    if (!["cod", "razorpay"].includes(paymentMethod)) {
+    const paymentMethod = normalizePaymentMethod(req.body.paymentMethod);
+    if (!paymentMethod) {
       return res
         .status(400)
         .json({ success: false, message: "Invalid payment method" });
+    }
+
+    if (paymentMethod === "cod" && !allowCod()) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Cash on delivery is not available" });
+    }
+    // fail before any stock is reserved
+    if (paymentMethod === "razorpay" && !razorpayConfigured()) {
+      return res
+        .status(503)
+        .json({ success: false, message: "Online payments are not available right now" });
     }
 
     const shippingAddress = await resolveShippingAddress(req);
@@ -106,6 +160,17 @@ export const createOrder = async (req: Request, res: Response) => {
     if (!cart || cart.items.length === 0) {
       return res.status(400).json({ success: false, message: "Cart is empty" });
     }
+
+    // Shops involved must be approved and open
+    const shopIds = [
+      ...new Set(
+        cart.items
+          .map((i: any) => i.product?.shop?.toString())
+          .filter(Boolean) as string[],
+      ),
+    ];
+    const shops: any[] = await Shop.find({ _id: { $in: shopIds } });
+    const shopById = new Map(shops.map((s) => [s._id.toString(), s]));
 
     // Build order lines from CURRENT product data, never from client/cart prices
     const orderItems: any[] = [];
@@ -123,8 +188,24 @@ export const createOrder = async (req: Request, res: Response) => {
           message: `Please select a valid size for ${product.name}`,
         });
       }
+      if (product.shop) {
+        const shop = shopById.get(product.shop.toString());
+        if (!shop || shop.status !== "approved") {
+          return res.status(400).json({
+            success: false,
+            message: `${product.name} is not available right now`,
+          });
+        }
+        if (!shop.isOpen) {
+          return res.status(400).json({
+            success: false,
+            message: `${shop.name} is currently closed`,
+          });
+        }
+      }
       orderItems.push({
         product: product._id,
+        shop: product.shop?.toString() ?? "platform",
         name: product.name,
         image: product.images?.[0],
         quantity: item.quantity,
@@ -146,30 +227,79 @@ export const createOrder = async (req: Request, res: Response) => {
     }
     reserved = orderItems;
 
-    const subtotal = orderItems.reduce((s, i) => s + i.price * i.quantity, 0);
-    const totals = computeTotals(subtotal);
+    // group by shop
+    const groups = new Map<string, any[]>();
+    for (const item of orderItems) {
+      const list = groups.get(item.shop) ?? [];
+      list.push(item);
+      groups.set(item.shop, list);
+    }
 
-    const order = await Order.create({
-      user: req.user._id,
-      items: orderItems,
-      shippingAddress,
-      paymentMethod: paymentMethod as PaymentMethod,
-      paymentStatus: "pending",
-      ...totals,
-      notes: req.body.notes,
-      orderNumber: generateOrderNumber(),
-    });
-    reserved = []; // order exists now - stock is owned by the order
+    checkoutId = generateCheckoutId();
+    const orders: any[] = [];
+    for (const [shopKey, items] of groups) {
+      const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+      const order = await Order.create({
+        user: req.user._id,
+        shop: shopKey === "platform" ? undefined : shopKey,
+        checkoutId,
+        items: items.map(({ shop: _s, ...rest }) => rest),
+        shippingAddress,
+        paymentMethod,
+        paymentOption: String(req.body.paymentMethod || "cod").toLowerCase(),
+        paymentStatus: "pending",
+        ...computeTotals(subtotal),
+        notes: req.body.notes,
+        orderNumber: generateOrderNumber(),
+      });
+      orders.push(order);
+    }
+
+    // Online payment: ONE Razorpay order for the whole checkout. If this throws,
+    // the catch block below removes the orders and returns the stock.
+    let payment = null;
+    if (paymentMethod === "razorpay") {
+      payment = await createCheckoutPayment(orders, req.user);
+    }
+    reserved = []; // orders exist now - stock is owned by them
 
     cart.items = [];
     cart.totalAmount = 0;
     await cart.save();
 
-    // RAZORPAY: when integrating, create the Razorpay order here for
-    // paymentMethod === "razorpay" (amount = toPaise(order.totalAmount)),
-    // save razorpayOrderId on the order and return it in the response.
-    res.status(201).json({ success: true, data: order });
+    // Notifications (best effort)
+    await notify(req.user._id, {
+      type: "order",
+      title: "Order placed",
+      body:
+        orders.length === 1
+          ? `Your order ${orders[0].orderNumber} has been placed`
+          : `Your ${orders.length} orders have been placed`,
+      data: { checkoutId, orderIds: orders.map((o) => o._id) },
+    });
+    // Online orders reach the shop only once they are paid (see paymentController)
+    for (const order of paymentMethod === "cod" ? orders : []) {
+      const shop = order.shop && shopById.get(order.shop.toString());
+      if (shop) {
+        await notify(shop.owner, {
+          type: "order",
+          title: "New order received",
+          body: `${order.orderNumber} - ₹${order.totalAmount}`,
+          data: { orderId: order._id },
+        });
+      }
+    }
+
+    const summary = {
+      subtotal: round2(orders.reduce((s, o) => s + o.subtotal, 0)),
+      shippingCost: round2(orders.reduce((s, o) => s + o.shippingCost, 0)),
+      tax: round2(orders.reduce((s, o) => s + o.tax, 0)),
+      totalAmount: round2(orders.reduce((s, o) => s + o.totalAmount, 0)),
+    };
+
+    res.status(201).json({ success: true, data: orders, checkoutId, summary, payment });
   } catch (error) {
+    if (checkoutId) await Order.deleteMany({ checkoutId, paymentStatus: "pending" }).catch(() => {});
     if (reserved.length) await restoreStockLines(reserved).catch(() => {});
     sendError(res, error, "Failed to create order");
   }
@@ -179,7 +309,7 @@ export const createOrder = async (req: Request, res: Response) => {
 // PUT /api/orders/:id/cancel
 export const cancelOrder = async (req: Request, res: Response) => {
   try {
-    const order = await Order.findById(req.params.id);
+    const order: any = await Order.findById(req.params.id);
     if (!order) {
       return res
         .status(404)
@@ -206,6 +336,18 @@ export const cancelOrder = async (req: Request, res: Response) => {
     await order.save();
     await restoreOrderStock(order._id);
 
+    if (order.shop) {
+      const shop: any = await Shop.findById(order.shop).select("owner");
+      if (shop) {
+        await notify(shop.owner, {
+          type: "order",
+          title: "Order cancelled by customer",
+          body: order.orderNumber,
+          data: { orderId: order._id },
+        });
+      }
+    }
+
     res.json({ success: true, data: order });
   } catch (error) {
     sendError(res, error, "Failed to cancel order");
@@ -229,44 +371,36 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
         .json({ success: false, message: `paymentStatus must be one of: ${PAYMENT_STATUSES.join(", ")}` });
     }
 
-    const order = await Order.findById(req.params.id);
+    const order: any = await Order.findById(req.params.id);
     if (!order) {
       return res
         .status(404)
         .json({ success: false, message: "Order not found" });
     }
 
-    if (
-      orderStatus &&
-      orderStatus !== order.orderStatus &&
-      (order.orderStatus === "cancelled" || order.orderStatus === "delivered")
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: `A ${order.orderStatus} order can't be changed`,
-      });
-    }
-
-    if (orderStatus && orderStatus !== order.orderStatus) {
-      order.orderStatus = orderStatus;
-      if (orderStatus === "delivered") {
-        order.deliveredAt = new Date();
-        // cash is collected on delivery
-        if (order.paymentMethod === "cod" && order.paymentStatus === "pending") {
-          order.paymentStatus = "paid";
-          order.paidAt = new Date();
-        }
-      }
-      if (orderStatus === "cancelled") order.cancelledAt = new Date();
-    }
+    const before = { orderStatus: order.orderStatus, paymentStatus: order.paymentStatus };
 
     if (paymentStatus && paymentStatus !== order.paymentStatus) {
       order.paymentStatus = paymentStatus;
       if (paymentStatus === "paid") order.paidAt = new Date();
     }
+    if (orderStatus && orderStatus !== order.orderStatus) {
+      await transitionOrder(order, orderStatus, "admin"); // saves
+    } else {
+      await order.save();
+    }
 
-    await order.save();
-    if (order.orderStatus === "cancelled") await restoreOrderStock(order._id);
+    if (order.orderStatus !== before.orderStatus) {
+      await notify(order.user, {
+        type: "order",
+        title: `Order ${order.orderNumber} is ${order.orderStatus === "shipping" ? "dispatched" : order.orderStatus}`,
+        data: { orderId: order._id },
+      });
+    }
+    await logActivity(req, "order.updated", "Order", order._id, {
+      from: before,
+      to: { orderStatus: order.orderStatus, paymentStatus: order.paymentStatus },
+    });
 
     res.json({ success: true, data: order });
   } catch (error) {
@@ -275,22 +409,23 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
 };
 
 // Get all orders (admin)
-// GET /api/orders/admin/all?page=&limit=&status=&paymentStatus=&search=
+// GET /api/orders/admin/all?page=&limit=&status=&paymentStatus=&shop=&search=
 export const getAllOrders = async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
-    const { status, paymentStatus, search } = req.query;
+    const { status, paymentStatus, search, shop } = req.query;
 
     const query: any = {};
     if (status) query.orderStatus = String(status);
     if (paymentStatus) query.paymentStatus = String(paymentStatus);
+    if (shop) query.shop = String(shop);
     if (search) query.orderNumber = new RegExp(escapeRegex(String(search)), "i");
 
     const total = await Order.countDocuments(query);
-    // (this used to skip but never limit, returning every order)
     const orders = await Order.find(query)
       .populate("user", "name email")
+      .populate("shop", "name location")
       .populate("items.product", "name")
       .sort("-createdAt")
       .skip((page - 1) * limit)
@@ -298,7 +433,7 @@ export const getAllOrders = async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      data: orders,
+      data: await attachDeliveries(orders),
       pagination: { total, page, pages: Math.ceil(total / limit) },
     });
   } catch (error) {

@@ -37,7 +37,14 @@ const orderSchema = new mongoose.Schema<IOrder>(
       state: { type: String, required: true },
       zipCode: { type: String, required: true },
       country: { type: String, required: true },
+      location: String,
+      landmark: String,
     },
+    // one order per shop; orders created in one checkout share a checkoutId
+    shop: { type: mongoose.Schema.Types.ObjectId, ref: "Shop", index: true },
+    checkoutId: { type: String, index: true },
+    settlement: { type: mongoose.Schema.Types.ObjectId, ref: "Settlement" },
+    paymentOption: { type: String }, // what the app sent: upi / card / cod ...
     paymentMethod: {
       type: String,
       required: true,

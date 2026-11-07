@@ -1,175 +1,55 @@
 import { Request, Response } from "express";
-import type { UploadApiResponse } from "cloudinary";
 import Product from "../models/Products.js";
-import cloudinary from "../config/cloudinary.js";
+import Shop from "../models/Shop.js";
 import { PRODUCT_CATEGORIES } from "../types/index.js";
 import { escapeRegex, sendError } from "../utils/http.js";
-
-// --------------------------------------------------
-// CLOUDINARY IMAGE UPLOAD
-// --------------------------------------------------
-
-const uploadToCloudinary = (
-  file: Express.Multer.File,
-): Promise<UploadApiResponse> => {
-  return new Promise((resolve, reject) => {
-    let settled = false;
-
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder: "pj-digitals-estore/products",
-        resource_type: "image",
-      },
-      (error, result) => {
-        if (settled) return;
-        settled = true;
-
-        if (error) {
-          console.error("CLOUDINARY ERROR DETAILS:");
-          console.dir(error, { depth: 10 });
-
-          console.error("ERROR PROPERTIES:", Object.getOwnPropertyNames(error));
-
-          reject(error);
-          return;
-        }
-
-        if (!result) {
-          reject(new Error("Cloudinary returned no upload result"));
-          return;
-        }
-
-        resolve(result);
-      },
-    );
-
-    uploadStream.on("error", (error) => {
-      if (settled) return;
-      settled = true;
-
-      console.error("CLOUDINARY STREAM ERROR:", error);
-      reject(error);
-    });
-
-    // IMPORTANT: End the stream exactly once.
-    uploadStream.end(file.buffer);
-  });
-};
+import { destroyImages, uploadToCloudinary } from "../utils/cloudinaryUpload.js";
 
 // --------------------------------------------------
 // HELPERS
 // --------------------------------------------------
 
-const getUploadedFiles = (req: Request): Express.Multer.File[] => {
-  return (req.files as Express.Multer.File[]) || [];
-};
+const getUploadedFiles = (req: Request): Express.Multer.File[] =>
+  (req.files as Express.Multer.File[]) || [];
 
 const parseSizes = (value: any): string[] => {
   if (!value) return [];
-
-  if (Array.isArray(value)) {
-    return value;
-  }
-
+  if (Array.isArray(value)) return value;
   if (typeof value === "string") {
     try {
       const parsed = JSON.parse(value);
-
-      if (Array.isArray(parsed)) {
-        return parsed;
-      }
-
+      if (Array.isArray(parsed)) return parsed;
       return parsed ? [parsed] : [];
     } catch {
       return value
         .split(",")
-        .map((size: string) => size.trim())
+        .map((s: string) => s.trim())
         .filter(Boolean);
     }
   }
-
   return [value];
 };
 
 const parseExistingImages = (value: any): string[] => {
   if (!value) return [];
-
   if (Array.isArray(value)) {
-    return value.filter((image) => typeof image === "string" && image.trim());
+    return value.filter((i) => typeof i === "string" && i.trim());
   }
-
   if (typeof value === "string") {
     try {
       const parsed = JSON.parse(value);
-
       if (Array.isArray(parsed)) {
-        return parsed.filter(
-          (image) => typeof image === "string" && image.trim(),
-        );
+        return parsed.filter((i) => typeof i === "string" && i.trim());
       }
-
-      if (typeof parsed === "string" && parsed.trim()) {
-        return [parsed];
-      }
+      if (typeof parsed === "string" && parsed.trim()) return [parsed];
     } catch {
       return [value];
     }
   }
-
   return [];
 };
 
-// Supports both existing URL strings and older Cloudinary result objects.
-const getCloudinaryPublicId = (image: any): string | null => {
-  if (!image) return null;
-
-  if (typeof image === "object" && image.public_id) {
-    return image.public_id;
-  }
-
-  const imageUrl =
-    typeof image === "string" ? image : image.secure_url || image.url;
-
-  if (typeof imageUrl !== "string") return null;
-
-  try {
-    const pathname = new URL(imageUrl).pathname;
-    const uploadMarker = "/upload/";
-    const uploadIndex = pathname.indexOf(uploadMarker);
-
-    if (uploadIndex === -1) return null;
-
-    let path = pathname.slice(uploadIndex + uploadMarker.length);
-
-    path = path.split("?")[0];
-
-    let segments = path.split("/").filter(Boolean);
-
-    // Remove Cloudinary transformation segments when present.
-    const versionIndex = segments.findIndex((segment) =>
-      /^v\d+$/.test(segment),
-    );
-
-    if (versionIndex !== -1) {
-      segments = segments.slice(versionIndex + 1);
-    } else if (segments[0]?.includes(",")) {
-      segments = segments.slice(1);
-    }
-
-    if (segments.length === 0) return null;
-
-    // Remove the file extension.
-    const lastIndex = segments.length - 1;
-
-    segments[lastIndex] = segments[lastIndex].replace(/\.[^/.]+$/, "");
-
-    return decodeURIComponent(segments.join("/"));
-  } catch {
-    return null;
-  }
-};
-
-// Only these fields can be set by the client (no mass-assignment).
+// Fields the client may set. `shop` and `isFeatured` are handled separately.
 const PRODUCT_FIELDS = [
   "name",
   "description",
@@ -177,7 +57,6 @@ const PRODUCT_FIELDS = [
   "comparePrice",
   "category",
   "stock",
-  "isFeatured",
   "isActive",
 ] as const;
 
@@ -189,25 +68,27 @@ const pickProductFields = (body: any) => {
   return out;
 };
 
-const destroyImages = async (images: string[]) => {
-  const results = await Promise.allSettled(
-    images.map(async (image) => {
-      const publicId = getCloudinaryPublicId(image);
-      if (!publicId) return null;
-      return cloudinary.uploader.destroy(publicId, { resource_type: "image" });
-    }),
-  );
-  results.forEach((r) => {
-    if (r.status === "rejected") console.error("CLOUDINARY DELETE ERROR:", r.reason);
-  });
-};
-
 const isAdmin = (req: Request) => req.user?.role === "admin";
+const isShopOwner = (req: Request) => req.user?.role !== "admin" && !!req.shop;
+
+const SHOP_SELECT = "name slug logo location phone addressLine status";
+
+/** Shop owners may only touch their own products. Returns false (and responds) if denied. */
+const canManage = (req: Request, res: Response, product: any) => {
+  if (isAdmin(req)) return true;
+  if (product.shop && req.shop && product.shop.toString() === req.shop._id.toString()) {
+    return true;
+  }
+  // 404 instead of 403 so other shops' product ids aren't confirmable
+  res.status(404).json({ success: false, message: "Product not found" });
+  return false;
+};
 
 // --------------------------------------------------
 // GET ALL PRODUCTS
 // GET /api/products?page=&limit=&search=&category=&minPrice=&maxPrice=
-//                  &featured=true&inStock=true&sort=newest|price_asc|price_desc|name
+//     &featured=true&inStock=true&sort=newest|price_asc|price_desc|name|rating
+//     &shop=<shopId>&location=Thodupuzha|Muttom
 // Admins may add &includeInactive=true
 // --------------------------------------------------
 
@@ -216,19 +97,19 @@ const SORTS: Record<string, any> = {
   price_asc: { price: 1, _id: 1 },
   price_desc: { price: -1, _id: 1 },
   name: { name: 1, _id: 1 },
+  rating: { "ratings.average": -1, "ratings.count": -1, _id: 1 },
 };
 
 export const getProducts = async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 10));
-    const { search, category, minPrice, maxPrice, featured, inStock, sort } =
+    const { search, category, minPrice, maxPrice, featured, inStock, sort, shop, location } =
       req.query;
 
     const query: any = {};
-    if (!(isAdmin(req) && req.query.includeInactive === "true")) {
-      query.isActive = true;
-    }
+    const seeAll = isAdmin(req) && req.query.includeInactive === "true";
+    if (!seeAll) query.isActive = true;
 
     if (category) {
       if (!(PRODUCT_CATEGORIES as readonly string[]).includes(String(category))) {
@@ -238,6 +119,25 @@ export const getProducts = async (req: Request, res: Response) => {
         });
       }
       query.category = String(category);
+    }
+
+    // Shop / location filtering. Products of pending/suspended shops stay hidden.
+    if (!seeAll) {
+      const hidden: any[] = await Shop.find({ status: { $ne: "approved" } }).distinct("_id");
+      if (shop) {
+        if (hidden.some((h) => h.toString() === String(shop))) {
+          return res.json({ success: true, data: [], pagination: { total: 0, page, pages: 0 } });
+        }
+        query.shop = String(shop);
+      } else if (location) {
+        query.shop = {
+          $in: await Shop.find({ status: "approved", location: String(location) }).distinct("_id"),
+        };
+      } else if (hidden.length) {
+        query.shop = { $nin: hidden };
+      }
+    } else if (shop) {
+      query.shop = String(shop);
     }
 
     if (search) {
@@ -259,6 +159,7 @@ export const getProducts = async (req: Request, res: Response) => {
     const [total, products] = await Promise.all([
       Product.countDocuments(query),
       Product.find(query)
+        .populate("shop", SHOP_SELECT)
         .sort(sortBy)
         .skip((page - 1) * limit)
         .limit(limit),
@@ -281,10 +182,10 @@ export const getProducts = async (req: Request, res: Response) => {
 
 export const getProduct = async (req: Request, res: Response) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product: any = await Product.findById(req.params.id).populate("shop", SHOP_SELECT);
 
-    // hide inactive (soft-deleted/unpublished) products from the public
-    if (!product || (!product.isActive && !isAdmin(req))) {
+    const shopHidden = product?.shop && product.shop.status !== "approved";
+    if (!product || ((!product.isActive || shopHidden) && !isAdmin(req))) {
       return res
         .status(404)
         .json({ success: false, message: "Product not found" });
@@ -297,7 +198,7 @@ export const getProduct = async (req: Request, res: Response) => {
 };
 
 // --------------------------------------------------
-// CREATE PRODUCT
+// CREATE PRODUCT (admin, or approved shop owner -> product belongs to their shop)
 // POST /api/products
 // --------------------------------------------------
 
@@ -313,18 +214,33 @@ export const createProduct = async (req: Request, res: Response) => {
       });
     }
 
+    const data: Record<string, any> = pickProductFields(req.body);
+
+    if (isShopOwner(req)) {
+      data.shop = req.shop._id; // forced - owners can't create for other shops
+    } else {
+      // admin: optional shop, optional featured flag
+      if (req.body.shop) {
+        const shop = await Shop.findById(req.body.shop);
+        if (!shop) {
+          return res.status(400).json({ success: false, message: "Shop not found" });
+        }
+        data.shop = shop._id;
+      }
+      if (req.body.isFeatured !== undefined) data.isFeatured = req.body.isFeatured;
+    }
+
     const uploaded = await Promise.all(files.map((f) => uploadToCloudinary(f)));
     images = uploaded.map((r) => r.secure_url);
 
     const product = await Product.create({
-      ...pickProductFields(req.body),
+      ...data,
       images,
       sizes: parseSizes(req.body.sizes),
     });
 
     return res.status(201).json({ success: true, data: product });
   } catch (error: any) {
-    // don't leave orphaned images in Cloudinary if the DB write failed
     if (images.length) await destroyImages(images);
 
     if (error.http_code) {
@@ -346,30 +262,45 @@ export const createProduct = async (req: Request, res: Response) => {
 export const updateProduct = async (req: Request, res: Response) => {
   let newImages: string[] = [];
   try {
-    const existing = await Product.findById(req.params.id);
+    const existing: any = await Product.findById(req.params.id);
     if (!existing) {
       return res
         .status(404)
         .json({ success: false, message: "Product not found" });
     }
+    if (!canManage(req, res, existing)) return;
 
     const files = getUploadedFiles(req);
     const updates: Record<string, any> = pickProductFields(req.body);
 
     if (req.body.sizes !== undefined) updates.sizes = parseSizes(req.body.sizes);
 
+    if (isAdmin(req)) {
+      if (req.body.isFeatured !== undefined) updates.isFeatured = req.body.isFeatured;
+      if (req.body.shop !== undefined) {
+        if (req.body.shop === "" || req.body.shop === "null") {
+          updates.shop = null;
+        } else {
+          const shop = await Shop.findById(req.body.shop);
+          if (!shop) {
+            return res.status(400).json({ success: false, message: "Shop not found" });
+          }
+          updates.shop = shop._id;
+        }
+      }
+    }
+
     if (files.length > 0) {
       const uploaded = await Promise.all(files.map((f) => uploadToCloudinary(f)));
       newImages = uploaded.map((r) => r.secure_url);
     }
 
-    // Only touch images if the admin explicitly changed them.
     let removed: string[] = [];
     if (req.body.existingImages !== undefined || files.length > 0) {
       const kept =
         req.body.existingImages !== undefined
           ? parseExistingImages(req.body.existingImages)
-          : existing.images; // new files only -> keep current ones
+          : existing.images;
       const finalImages = [...kept, ...newImages];
 
       if (finalImages.length === 0) {
@@ -379,7 +310,7 @@ export const updateProduct = async (req: Request, res: Response) => {
         });
       }
       updates.images = finalImages;
-      removed = existing.images.filter((img) => !finalImages.includes(img));
+      removed = existing.images.filter((img: string) => !finalImages.includes(img));
     }
 
     const product = await Product.findByIdAndUpdate(req.params.id, updates, {
@@ -411,16 +342,16 @@ export const updateProduct = async (req: Request, res: Response) => {
 
 export const deleteProduct = async (req: Request, res: Response) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product: any = await Product.findById(req.params.id);
 
     if (!product) {
       return res
         .status(404)
         .json({ success: false, message: "Product not found" });
     }
+    if (!canManage(req, res, product)) return;
 
     await Product.findByIdAndDelete(req.params.id);
-    // delete images only after the DB delete succeeded
     await destroyImages(product.images || []);
 
     return res.json({ success: true, message: "Product deleted successfully" });
