@@ -18,6 +18,7 @@ import ProductPhoto from './components/ProductPhoto';
 import ProductGallery from './components/ProductGallery';
 import PartnerRequest from './components/PartnerRequest';
 import CategoryMenu from './components/CategoryMenu';
+import OrderDetails from './components/OrderDetails';
 import type { PartnerDraft, PartnerRole } from './utils/partnerRequests';
 import { availableQuantity } from './utils/productOptions';
 import PaymentSection, { type PaymentMethod } from './components/PaymentSection';
@@ -27,11 +28,12 @@ import { useStoreTheme } from './ThemeContext';
 import { CategoryPicker, ProductGrid, StorePicker } from './components/ShopComponents';
 import { categories, getStore, money, sortOptions, stores } from './data/catalog';
 import { createStyles } from './styles/appStyles';
-import type { CategoryFilter, DeliveryLocation, Order, Product, StoreId, Tab } from './data/types';
+import type { CategoryFilter, DeliveryLocation, Product, StoreId, Tab } from './data/types';
 import { useCustomerAuth } from '../auth/CustomerAuthContext';
 import AccountSettings from '../auth/AccountSettings';
 import { useCatalogue } from './hooks/useCatalogue';
 import { useCustomerCart, type BasketLine } from './hooks/useCustomerCart';
+import { useCustomerOrders } from './hooks/useCustomerOrders';
 
 export default function StorefrontScreen() {
   const { width } = useWindowDimensions();
@@ -61,7 +63,7 @@ export default function StorefrontScreen() {
 
   async function logout() {
     try { await signOut(); } catch { notify('Unable to sign out. Please try again.', 'error'); return; }
-    basket.discardGuest(); setFavorites([]); setOrders([]); setAddresses([]); setPartnerDrafts({});
+    basket.discardGuest(); setFavorites([]); setAddresses([]); setPartnerDrafts({});
     setSelectedAddressId(null); setRecentViews([]);
     setAddressReturnTab('Home'); setSelectedProduct(null); setTab('Home');
     setDrawerOpen(false); drawerProgress.setValue(0);
@@ -76,7 +78,7 @@ export default function StorefrontScreen() {
   const [refreshVersion, setRefreshVersion] = useState(0);
   async function refreshPage() { await catalogue.reload(); basket.reload(); setRefreshVersion(value => value + 1); }
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [deliveryLocation, setDeliveryLocation] = useState<DeliveryLocation>('Thodupuzha, Idukki');
+  const [deliveryLocation, setDeliveryLocation] = useState<DeliveryLocation>('Thodupuzha');
   const [locationOpen, setLocationOpen] = useState(false);
   const drawerProgress = useRef(new Animated.Value(0)).current;
   const { palette, mode, setMode } = useStoreTheme();
@@ -86,7 +88,9 @@ export default function StorefrontScreen() {
   }, [palette, width]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [productReviews, setProductReviews] = useState<Record<string, ProductReview[]>>({});
-  const [orders, setOrders] = useState<Order[]>([]);
+  const orderFeed = useCustomerOrders(tab === 'Orders' || tab === 'History', refreshVersion);
+  const { orders } = orderFeed;
+  const [selectedOrder, setSelectedOrder] = useState<{ id: string; owner: string } | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('UPI');
   const [addresses, setAddresses] = useState<DeliveryAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
@@ -325,9 +329,18 @@ export default function StorefrontScreen() {
     </>;
   }
 
-  function renderOrders() { return <><TouchableOpacity style={styles.backButton} onPress={() => { setTab('Home'); pageScroll.current?.scrollTo({ y: 0, animated: false }); }} accessibilityRole="button" accessibilityLabel="Back to home"><Text style={styles.backButtonText}>← Back to Home</Text></TouchableOpacity><Text style={styles.pageTitle}>My orders</Text><Text style={styles.pageIntro}>Demo orders placed from this device.</Text>{orders.length === 0 ? <View style={styles.emptyState}><Text style={styles.emptyEmoji}>BOX</Text><Text style={styles.emptyTitle}>No orders yet</Text><Text style={styles.muted}>Orders appear here after checkout.</Text></View> : orders.map((order) => <View key={order.id} style={styles.menuCard}><View style={styles.menuCopy}><Text style={styles.storeName}>{order.id}</Text><Text style={styles.muted}>{order.date} | {order.items.length} items | {money(order.total)} · {order.paymentMethod} · {order.paymentStatus}</Text></View></View>)}</>; }
+  function renderOrderState() {
+    if (!customer) return <View style={styles.emptyState}><Text style={styles.emptyTitle}>Sign in to see your orders</Text><TouchableOpacity style={styles.primaryButton} onPress={() => router.push('/login' as Href)} accessibilityRole="button"><Text style={styles.primaryButtonText}>Sign in</Text></TouchableOpacity></View>;
+    if (selectedOrder?.owner === customer.id) return <OrderDetails key={`${customer.id}:${selectedOrder.id}`} id={selectedOrder.id} refreshVersion={refreshVersion} onBack={() => setSelectedOrder(null)} />;
+    if (orderFeed.loading) return <Text accessibilityLiveRegion="polite" style={styles.pageIntro}>Loading your orders…</Text>;
+    if (orderFeed.error) return <View style={styles.emptyState}><Text style={styles.emptyTitle}>Unable to load orders</Text><Text style={styles.muted}>{orderFeed.error}</Text><TouchableOpacity style={styles.secondaryButton} onPress={orderFeed.reload} accessibilityRole="button"><Text style={styles.secondaryButtonText}>Retry</Text></TouchableOpacity></View>;
+    if (!orders.length) return <View style={styles.emptyState}><Text style={styles.emptyTitle}>No orders yet</Text><Text style={styles.muted}>Your saved orders will appear here.</Text></View>;
+    return orders.map(order => <TouchableOpacity key={order.id} style={styles.menuCard} accessibilityRole="button" accessibilityLabel={`View order ${order.number}`} onPress={() => { setSelectedOrder({ id: order.id, owner: customer.id }); pageScroll.current?.scrollTo({ y: 0, animated: false }); }}><View style={styles.menuCopy}><Text style={styles.storeName}>{order.number}</Text><Text style={styles.muted}>{order.date} · {order.itemCount} items · {money(order.total)}</Text><Text style={styles.storeName}>Status: {order.status}</Text><Text style={styles.muted}>{order.paymentMethod} · {order.paymentStatus}</Text><Text style={styles.changeLink}>View details →</Text></View></TouchableOpacity>);
+  }
 
-  function renderHistory() { return <><Text style={styles.pageTitle}>History</Text><Text style={styles.pageIntro}>Purchases and recently viewed products.</Text>{orders.map((order) => <View key={order.id} style={styles.menuCard}><View style={styles.menuCopy}><Text style={styles.storeName}>{order.id}</Text><Text style={styles.muted}>{order.date}</Text></View></View>)}<View style={styles.sectionHeading}><Text style={styles.sectionTitle}>Recently viewed</Text></View><ProductGrid items={recentViews} styles={styles} favorites={favorites} onOpen={openProduct} onToggleFavorite={toggleFavorite} onAdd={addToCart} money={money} /></>; }
+  function renderOrders() { return <><TouchableOpacity style={styles.backButton} onPress={() => { setTab('Home'); pageScroll.current?.scrollTo({ y: 0, animated: false }); }} accessibilityRole="button" accessibilityLabel="Back to home"><Text style={styles.backButtonText}>← Back to Home</Text></TouchableOpacity><Text style={styles.pageTitle}>My orders</Text><Text style={styles.pageIntro}>Orders saved to your account.</Text>{renderOrderState()}</>; }
+
+  function renderHistory() { return <><Text style={styles.pageTitle}>History</Text><Text style={styles.pageIntro}>Purchases and recently viewed products.</Text>{renderOrderState()}<View style={styles.sectionHeading}><Text style={styles.sectionTitle}>Recently viewed</Text></View><ProductGrid items={recentViews} styles={styles} favorites={favorites} onOpen={openProduct} onToggleFavorite={toggleFavorite} onAdd={addToCart} money={money} /></>; }
 
   function renderAccount() { return Platform.OS === 'web' ? <Redirect href={'/account' as Href} /> : <><Text style={styles.pageTitle}>Account settings</Text><Text style={styles.pageIntro}>Your profile and sign-in preferences.</Text><AccountSettings /></>; }
 
@@ -347,7 +360,7 @@ export default function StorefrontScreen() {
 
   function renderPartnerRequest(role: PartnerRole) {
     const draftKey = `${customer?.id ?? 'guest'}:${role}`;
-    return <PartnerRequest key={draftKey} role={role} name={customer?.name} email={customer?.email} location={deliveryLocation} draft={partnerDrafts[draftKey]}
+    return <PartnerRequest key={draftKey} role={role} name={customer?.name} email={customer?.email} location={deliveryLocation} draft={partnerDrafts[draftKey] ?? partnerDrafts[`guest:${role}`]}
       onSave={draft => { setPartnerDrafts(current => ({ ...current, [draftKey]: draft })); notify('Request draft saved for this session. Nothing has been sent.'); }}
       onBack={() => chooseTab('Home')} onScrollTop={() => pageScroll.current?.scrollTo({ y: 0, animated: false })} />;
   }
@@ -457,7 +470,7 @@ export default function StorefrontScreen() {
           <View style={styles.locationDialog} accessibilityViewIsModal>
             <View style={styles.drawerHeader}><Text style={styles.drawerBrand}>Delivery location</Text><TouchableOpacity onPress={() => setLocationOpen(false)} style={styles.drawerClose} accessibilityRole="button" accessibilityLabel="Close location selector"><Text style={styles.drawerCloseText}>×</Text></TouchableOpacity></View>
             <Text style={styles.muted}>Choose your area to see its shops and available products.</Text>
-            {(['Thodupuzha, Idukki', 'Muttom, Idukki'] as const).map((location) => <TouchableOpacity key={location} style={[styles.storeCard, deliveryLocation === location && styles.storeCardSelected]} accessibilityRole="button" accessibilityState={{ selected: deliveryLocation === location }} onPress={() => { setDeliveryLocation(location); setLocationOpen(false); }}><Text style={styles.locationPin}>⌖</Text><Text style={styles.storeName}>{location}</Text>{deliveryLocation === location ? <Text style={styles.changeLink}>✓</Text> : null}</TouchableOpacity>)}
+            {(['Thodupuzha', 'Muttom'] as const).map((location) => <TouchableOpacity key={location} style={[styles.storeCard, deliveryLocation === location && styles.storeCardSelected]} accessibilityRole="button" accessibilityState={{ selected: deliveryLocation === location }} onPress={() => { setDeliveryLocation(location); setLocationOpen(false); }}><Text style={styles.locationPin}>⌖</Text><Text style={styles.storeName}>{location}</Text>{deliveryLocation === location ? <Text style={styles.changeLink}>✓</Text> : null}</TouchableOpacity>)}
           </View>
         </KeyboardAvoidingView>
       </Modal>

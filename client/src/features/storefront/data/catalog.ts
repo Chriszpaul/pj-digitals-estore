@@ -26,9 +26,9 @@ const sortOptions = ['Featured', 'Price: low to high', 'Price: high to low'];
 const stores: Store[] = [
   { id: 'all', name: 'All local shops', area: 'Browse all participating stores', icon: '⌂' },
   { id: 'catalogue', name: 'NearBy catalogue', area: 'Shop and delivery area not supplied by the server', icon: '▦' },
-  { id: 'vv', name: 'VV Electricals', area: 'Thodupuzha · Electronics', icon: '✳', category: 'Electronics', location: 'Thodupuzha, Idukki' },
-  { id: 'sr', name: 'SR Electrics', area: 'Muttom · Electronics', icon: 'ϟ', category: 'Electronics', location: 'Muttom, Idukki' },
-  { id: 'textiles', name: 'Thodupuzha Textiles', area: 'Thodupuzha · Textiles & clothing', icon: '▤', category: 'Textiles', location: 'Thodupuzha, Idukki' },
+  { id: 'vv', name: 'VV Electricals', area: 'Thodupuzha · Electronics', icon: '✳', category: 'Electronics', location: 'Thodupuzha' },
+  { id: 'sr', name: 'SR Electrics', area: 'Muttom · Electronics', icon: 'ϟ', category: 'Electronics', location: 'Muttom' },
+  { id: 'textiles', name: 'Thodupuzha Textiles', area: 'Thodupuzha · Textiles & clothing', icon: '▤', category: 'Textiles', location: 'Thodupuzha' },
 ];
 
 const starterProducts: Product[] = [

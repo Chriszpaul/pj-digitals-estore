@@ -1,7 +1,7 @@
 export type Category = 'Electronics' | 'Textiles' | 'Home Appliances' | 'Computer Items' | 'Bakery' | 'Other';
 export type CategoryFilter = 'All' | Category;
 export type StoreId = 'all' | 'vv' | 'sr' | 'textiles' | 'catalogue';
-export type DeliveryLocation = 'Thodupuzha, Idukki' | 'Muttom, Idukki';
+export type DeliveryLocation = 'Thodupuzha' | 'Muttom';
 export type Store = { id: StoreId; name: string; area: string; icon: string; category?: Category; location?: DeliveryLocation };
 export type Product = {
   id: string;

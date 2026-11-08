@@ -4,7 +4,7 @@ import { categories as catalogueCategories } from '../data/catalog';
 export type PartnerRole = 'shop' | 'delivery';
 export const partnerCategories = catalogueCategories;
 export const vehicleTypes = ['Bike', 'Scooter'] as const;
-export const partnerAreas: DeliveryLocation[] = ['Thodupuzha, Idukki', 'Muttom, Idukki'];
+export const partnerAreas: DeliveryLocation[] = ['Thodupuzha', 'Muttom'];
 export type PartnerFields = {
   fullName: string; phone: string; email: string; shopName: string; address: string;
   categories: (typeof partnerCategories[number])[]; areas: DeliveryLocation[];
