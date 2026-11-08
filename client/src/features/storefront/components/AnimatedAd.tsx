@@ -67,6 +67,6 @@ const styles = StyleSheet.create({
   track: { flexDirection: 'row', alignItems: 'flex-start' },
   dots: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   dotButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  dot: { width: 6, height: 6, borderRadius: 4, backgroundColor: '#DED2E9' },
-  activeDot: { width: 21, backgroundColor: '#7042B8' },
+  dot: { width: 6, height: 6, borderRadius: 4, backgroundColor: '#D8D0E7' },
+  activeDot: { width: 21, backgroundColor: '#4B3575' },
 });
