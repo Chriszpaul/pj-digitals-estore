@@ -26,7 +26,7 @@ import AddressBook, { type DeliveryAddress } from './components/AddressBook';
 import SearchSuggestions from './components/SearchSuggestions';
 import { useStoreTheme } from './ThemeContext';
 import { CategoryPicker, ProductGrid, StorePicker } from './components/ShopComponents';
-import { categories, getStore, money, sortOptions, stores } from './data/catalog';
+import { categories, getStore as getFallbackStore, money, sortOptions, stores } from './data/catalog';
 import { createStyles } from './styles/appStyles';
 import type { CategoryFilter, DeliveryLocation, Product, StoreId, Tab } from './data/types';
 import { useCustomerAuth } from '../auth/CustomerAuthContext';
@@ -117,9 +117,10 @@ export default function StorefrontScreen() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const detailRequest = useRef(0);
-  const locationShops = stores.filter(store => store.location === deliveryLocation && products.some(product => product.store === store.id));
-  // Seller and service area are not present in the product API response.
-  const locationProducts = products;
+  const getStore = (id: StoreId) => catalogue.shops.find(shop => shop.id === id) ?? products.find(product => product.store === id)?.shop ?? getFallbackStore(id);
+  const locationShops = catalogue.shops.filter(shop => shop.location === deliveryLocation);
+  const locationProducts = products.filter(product => !product.shop?.location || product.shop.location === deliveryLocation);
+  const shopDataUnavailable = products.some(product => product.shopDataStatus === 'unavailable');
   const deliveryAddress = addresses.find((address) => address.id === selectedAddressId && address.location === deliveryLocation);
 
   function openDrawer(): void {
@@ -228,7 +229,7 @@ export default function StorefrontScreen() {
           </View>
         </TouchableOpacity>
       </View>
-      {locationShops.length ? <HomeShops key={`${deliveryLocation}-${refreshVersion}`} products={locationProducts} shops={locationShops} onSelect={openShop} /> : <Text style={styles.formNote}>Shop-by-name browsing needs seller and location details from the API.</Text>}
+      {locationShops.length ? <HomeShops key={`${deliveryLocation}-${refreshVersion}`} products={locationProducts} shops={locationShops} onSelect={openShop} /> : <Text style={styles.formNote}>{catalogue.loading ? 'Loading local shops…' : catalogue.error || shopDataUnavailable ? 'Shop information unavailable. Seller and location details could not be loaded for this catalogue.' : 'No local shops listed in this catalogue for the selected location.'}</Text>}
     </>;
   }
 
@@ -295,7 +296,7 @@ export default function StorefrontScreen() {
           <Text style={styles.storeIcon}>{store.icon}</Text><View style={styles.storeCopy}><Text style={styles.storeName}>{store.name}</Text><Text style={styles.muted}>{store.area}</Text><Text style={styles.storeCount}>{count} products available  ·  Select store →</Text></View>
         </TouchableOpacity>;
       })}
-      {!locationShops.some((store) => products.some((product) => product.store === store.id && product.category === storeCategory)) ? <View style={styles.emptyState}><Text style={styles.emptyTitle}>No {storeCategory.toLowerCase()} shops here yet</Text><Text style={styles.muted}>Try another store type or change your location.</Text></View> : null}
+      {!locationShops.some((store) => products.some((product) => product.store === store.id && product.category === storeCategory)) ? <View style={styles.emptyState}><Text style={styles.emptyTitle}>{catalogue.loading ? 'Loading shops…' : catalogue.error || products.some(product => product.category === storeCategory && product.shopDataStatus === 'unavailable') ? 'Shop information unavailable' : `No ${storeCategory.toLowerCase()} shops listed`}</Text><Text style={styles.muted}>{catalogue.error || products.some(product => product.category === storeCategory && product.shopDataStatus === 'unavailable') ? 'The catalogue does not include complete seller and location details for these products.' : 'Try another store type or change your location.'}</Text></View> : null}
     </>;
   }
 
@@ -390,6 +391,7 @@ export default function StorefrontScreen() {
       {detailError ? <View style={styles.notice}><Text style={styles.noticeText}>{detailError}</Text><TouchableOpacity onPress={() => openProduct(product)}><Text style={styles.backButtonText}>Retry details</Text></TouchableOpacity></View> : null}
       <Text style={styles.productCategory}>{product.category.toUpperCase()}  ·  ★ {product.rating || 'New'}</Text><Text style={styles.detailTitle}>{product.name}</Text><Text style={styles.detailPrice}>{money(product.price)}</Text>
       <Text style={styles.detailDescription}>{product.description || 'Product details will be added soon.'}</Text>
+      {product.shopDataStatus === 'unavailable' ? <Text style={styles.formNote}>Shop information unavailable. Seller or location details were not supplied for this product.</Text> : null}
       <TouchableOpacity style={styles.detailFavorite} onPress={() => toggleFavorite(product.id)} accessibilityRole="button" accessibilityLabel={favorites.includes(product.id) ? 'Remove from wishlist' : 'Add to wishlist'}><Text style={styles.detailFavoriteText}>{favorites.includes(product.id) ? '♥ Saved to wishlist · Remove' : '♡ Add to wishlist'}</Text></TouchableOpacity>
       {product.sizes?.length ? <><Text style={styles.inputLabel}>CHOOSE SIZE</Text><CategoryPicker styles={styles} value={selectedSize} onChange={setSelectedSize} options={product.sizes} /></> : null}
       <View style={{ marginVertical: 18, gap: 10 }}>

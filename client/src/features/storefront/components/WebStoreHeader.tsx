@@ -17,7 +17,7 @@ export default function WebStoreHeader(props: Props) {
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (blurTimer.current) clearTimeout(blurTimer.current); }, []);
   const term = query.trim().toLowerCase();
-  const matches = term ? props.products.filter(product => `${product.name} ${product.category} ${getStore(product.store).name}`.toLowerCase().includes(term)).sort((a, b) => Number(b.name.toLowerCase().startsWith(term)) - Number(a.name.toLowerCase().startsWith(term))).slice(0, 5) : [];
+  const matches = term ? props.products.filter(product => `${product.name} ${product.category} ${(product.shop?.name ?? getStore(product.store).name)}`.toLowerCase().includes(term)).sort((a, b) => Number(b.name.toLowerCase().startsWith(term)) - Number(a.name.toLowerCase().startsWith(term))).slice(0, 5) : [];
   function selectProduct(product: Product) { setFocused(false); setHighlighted(-1); setQuery(product.name); props.onProduct(product); }
   function submit() {
     if (focused && highlighted >= 0 && matches[highlighted]) { selectProduct(matches[highlighted]); return; }

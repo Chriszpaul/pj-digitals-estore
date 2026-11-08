@@ -9,7 +9,7 @@ export default function SearchSuggestions({ query, products, onSelect, includeSh
   const styles = createStyles(palette);
   const value = query.trim().toLowerCase();
   if (!value || products.some((product) => product.name.toLowerCase() === value)) return null;
-  const suggestions = products.filter((product) => `${product.name} ${product.category}${includeShopNames ? ` ${getStore(product.store).name}` : ''}`.toLowerCase().includes(value))
+  const suggestions = products.filter((product) => `${product.name} ${product.category}${includeShopNames ? ` ${(product.shop?.name ?? getStore(product.store).name)}` : ''}`.toLowerCase().includes(value))
     .sort((a, b) => Number(b.name.toLowerCase().startsWith(value)) - Number(a.name.toLowerCase().startsWith(value)))
     .filter((product, index, matches) => matches.findIndex((item) => item.name === product.name) === index).slice(0, 5);
   if (!suggestions.length) return null;

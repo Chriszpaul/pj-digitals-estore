@@ -1,6 +1,6 @@
 export type Category = 'Electronics' | 'Textiles' | 'Home Appliances' | 'Computer Items' | 'Bakery' | 'Other';
 export type CategoryFilter = 'All' | Category;
-export type StoreId = 'all' | 'vv' | 'sr' | 'textiles' | 'catalogue';
+export type StoreId = 'all' | 'vv' | 'sr' | 'textiles' | 'catalogue' | `shop:${string}`;
 export type DeliveryLocation = 'Thodupuzha' | 'Muttom';
 export type Store = { id: StoreId; name: string; area: string; icon: string; category?: Category; location?: DeliveryLocation };
 export type Product = {
@@ -15,6 +15,8 @@ export type Product = {
   rating?: string;
   tag?: string;
   store: Exclude<StoreId, 'all'>;
+  shop?: Store;
+  shopDataStatus?: 'available' | 'unavailable';
   description?: string;
   images?: string[];
   sizes?: string[];
