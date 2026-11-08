@@ -4,11 +4,11 @@ import BrandLogo from '@/components/BrandLogo';
 import Text from './AppText';
 import InterfaceIcon from './InterfaceIcon';
 import { useStoreTheme } from '../ThemeContext';
-import { categories, getStore, money } from '../data/catalog';
+import { getStore, money } from '../data/catalog';
 import type { Product, Tab } from '../data/types';
 import ProductPhoto from './ProductPhoto';
 
-type Props = { active: Tab; location: string; products: Product[]; onProduct: (product: Product) => void; cartCount: number; favorites: number; customerName?: string; onNavigate: (tab: Tab) => void; onSearch: (query: string) => void; onLocation: () => void; onAccount: () => void; onMenu: () => void };
+type Props = { location: string; products: Product[]; onProduct: (product: Product) => void; cartCount: number; favorites: number; customerName?: string; onNavigate: (tab: Tab) => void; onSearch: (query: string) => void; onLocation: () => void; onAccount: () => void; onMenu: () => void };
 export default function WebStoreHeader(props: Props) {
   const { palette: p } = useStoreTheme();
   const [query, setQuery] = useState('');
@@ -17,7 +17,7 @@ export default function WebStoreHeader(props: Props) {
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (blurTimer.current) clearTimeout(blurTimer.current); }, []);
   const term = query.trim().toLowerCase();
-  const matches = term ? props.products.filter(product => `${product.name} ${product.category} ${getStore(product.store).name}`.toLowerCase().includes(term)).sort((a, b) => Number(b.name.toLowerCase().startsWith(term)) - Number(a.name.toLowerCase().startsWith(term))).slice(0, 5) : [];
+  const matches = term ? props.products.filter(product => `${product.name} ${product.category} ${(product.shop?.name ?? getStore(product.store).name)}`.toLowerCase().includes(term)).sort((a, b) => Number(b.name.toLowerCase().startsWith(term)) - Number(a.name.toLowerCase().startsWith(term))).slice(0, 5) : [];
   function selectProduct(product: Product) { setFocused(false); setHighlighted(-1); setQuery(product.name); props.onProduct(product); }
   function submit() {
     if (focused && highlighted >= 0 && matches[highlighted]) { selectProduct(matches[highlighted]); return; }
@@ -38,8 +38,8 @@ export default function WebStoreHeader(props: Props) {
         </View>
         {focused && term ? <View style={[s.suggestions, { backgroundColor: p.surface, borderColor: p.border }]}>
           <Text style={[s.suggestionHeading, { color: p.muted }]}>PRODUCTS NEAR YOU</Text>
-          {matches.length ? matches.map((product, index) => <Pressable key={product.id} accessibilityRole="button" accessibilityLabel={`View ${product.name} from ${getStore(product.store).name}`} onPress={() => selectProduct(product)} style={[s.suggestionRow, { backgroundColor: highlighted === index ? p.soft : p.surface }]}>
-            <View style={s.thumbnail}><ProductPhoto product={product} /></View><View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={[s.actionText, { color: p.text }]}>{product.name}</Text><Text numberOfLines={1} style={[s.small, { color: p.muted }]}>{getStore(product.store).name} · {product.category}</Text></View><Text style={[s.actionText, { color: p.primaryText }]}>{money(product.price)}</Text>
+          {matches.length ? matches.map((product, index) => <Pressable key={product.id} accessibilityRole="button" accessibilityLabel={`View ${product.name}`} onPress={() => selectProduct(product)} style={[s.suggestionRow, { backgroundColor: highlighted === index ? p.soft : p.surface }]}>
+            <View style={s.thumbnail}><ProductPhoto product={product} /></View><View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={[s.actionText, { color: p.text }]}>{product.name}</Text><Text numberOfLines={1} style={[s.small, { color: p.muted }]}>{product.category}</Text></View><Text style={[s.actionText, { color: p.primaryText }]}>{money(product.price)}</Text>
           </Pressable>) : <Text style={[s.small, { color: p.muted, padding: 12 }]}>No matching products in {props.location}.</Text>}
           <Pressable accessibilityRole="button" onPress={() => { setFocused(false); props.onSearch(query); }} style={[s.allResults, { borderTopColor: p.border }]}><Text style={[s.actionText, { color: p.primaryText }]}>See all results for “{query.trim()}” →</Text></Pressable>
         </View> : null}
@@ -49,12 +49,8 @@ export default function WebStoreHeader(props: Props) {
       <Pressable accessibilityRole="button" accessibilityLabel={`Cart, ${props.cartCount} items`} onPress={() => props.onNavigate('Cart')} style={[s.cart, { backgroundColor: p.soft }]}><InterfaceIcon name="bag" color={p.primaryText} /><Text style={[s.actionText, { color: p.primaryText }]}>Cart ({props.cartCount})</Text></Pressable>
     </View>
     <View style={[s.navBorder, { borderColor: p.border }]}><View style={s.nav}>
-      {([{ label: 'Home', tab: 'Home' }, { label: 'Supermarket', tab: 'Supermarket' }, { label: 'Shop by name', tab: 'Shops' }] as const).map(link => <Pressable key={link.tab} accessibilityRole="button" accessibilityState={{ selected: props.active === link.tab }} onPress={() => props.onNavigate(link.tab)} style={[s.navLink, { borderBottomColor: props.active === link.tab ? p.primary : 'transparent' }]}><Text style={[s.actionText, { color: props.active === link.tab ? p.primaryText : p.text }]}>{link.label}</Text></Pressable>)}
-      <View style={[s.separator, { backgroundColor: p.border }]} />
-      {categories.map(category => <Pressable key={category} accessibilityRole="button" onPress={() => props.onSearch(category)} style={s.category}><Text style={[s.small, { color: p.muted }]}>{category}</Text></Pressable>)}
-      <View style={{ flex: 1 }} />
-      <Pressable accessibilityRole="button" accessibilityLabel={`Change delivery location, ${props.location}`} onPress={props.onLocation} style={s.category}><Text style={[s.small, { color: p.primaryText }]}>⌖ {props.location} ▾</Text></Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel="More account options" onPress={props.onMenu} style={s.menu}><InterfaceIcon name="menu" color={p.primaryText} /></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Change delivery location, ${props.location}`} onPress={props.onLocation} style={s.location}><Text style={[s.small, { color: p.primaryText }]}>⌖ {props.location} ▾</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Open navigation menu" onPress={props.onMenu} style={s.menu}><InterfaceIcon name="menu" color={p.primaryText} /></Pressable>
     </View></View>
   </View>;
 }
@@ -67,5 +63,5 @@ const s = StyleSheet.create({
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10 }, brandName: { fontSize: 27, fontWeight: '800', letterSpacing: -1 }, small: { fontSize: 11, lineHeight: 17 },
   search: { flex: 1, minWidth: 160, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 12, padding: 5 }, input: { flex: 1, minWidth: 0, paddingHorizontal: 10, paddingVertical: 10, fontSize: 13 }, searchButton: { paddingHorizontal: 18, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   action: { gap: 3, paddingVertical: 8, maxWidth: 140 }, actionText: { fontSize: 12, fontWeight: '700' }, iconAction: { alignItems: 'center', gap: 4, padding: 6 }, cart: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 10, padding: 13 },
-  navBorder: { borderTopWidth: 1 }, nav: { width: '100%', maxWidth: 1360, alignSelf: 'center', paddingHorizontal: 28, flexDirection: 'row', alignItems: 'center', gap: 14, flexWrap: 'wrap' }, navLink: { paddingVertical: 17, borderBottomWidth: 2 }, category: { paddingVertical: 14 }, separator: { height: 18, width: 1, marginHorizontal: 2 }, menu: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
+  navBorder: { borderTopWidth: 1 }, nav: { width: '100%', maxWidth: 1360, alignSelf: 'center', paddingHorizontal: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 14, flexWrap: 'wrap' }, location: { paddingVertical: 14 }, menu: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
 });

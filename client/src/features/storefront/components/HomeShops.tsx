@@ -19,7 +19,7 @@ function ShopTile({ shop, index, count, width, onSelect }: { shop: Store; index:
       <Pressable onPress={() => onSelect(shop.id)} onPressIn={() => press(0.98)} onPressOut={() => press(1)} accessibilityRole="button" accessibilityLabel={`Browse ${shop.name}, ${count} products`} style={styles.button}>
         <View style={styles.top}><View style={[styles.icon, index === 1 && styles.goldIcon]}><Text style={styles.symbol}>{shop.icon}</Text></View><Text style={styles.arrow}>↗</Text></View>
         <Text style={styles.name}>{shop.name}</Text>
-        <Text style={styles.category}>{shop.id === 'textiles' ? 'Textiles & clothing' : 'Electronics'}</Text>
+        <Text style={styles.category}>{shop.category ?? 'Local shop'}</Text>
         <View style={styles.bottom}><View style={styles.dot} /><Text style={styles.count}>{count} items to explore</Text></View>
       </Pressable>
     </Animated.View>

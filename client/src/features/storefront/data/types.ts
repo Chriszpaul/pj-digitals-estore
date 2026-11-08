@@ -1,7 +1,7 @@
-export type Category = 'Electronics' | 'Textiles' | 'Home Appliances' | 'Computer Items' | 'Other';
+export type Category = 'Electronics' | 'Textiles' | 'Home Appliances' | 'Computer Items' | 'Bakery' | 'Other';
 export type CategoryFilter = 'All' | Category;
-export type StoreId = 'all' | 'vv' | 'sr' | 'textiles' | 'catalogue';
-export type DeliveryLocation = 'Thodupuzha, Idukki' | 'Muttom, Idukki';
+export type StoreId = 'all' | 'vv' | 'sr' | 'textiles' | 'catalogue' | `shop:${string}`;
+export type DeliveryLocation = 'Thodupuzha' | 'Muttom';
 export type Store = { id: StoreId; name: string; area: string; icon: string; category?: Category; location?: DeliveryLocation };
 export type Product = {
   id: string;
@@ -15,6 +15,8 @@ export type Product = {
   rating?: string;
   tag?: string;
   store: Exclude<StoreId, 'all'>;
+  shop?: Store;
+  shopDataStatus?: 'available' | 'unavailable';
   description?: string;
   images?: string[];
   sizes?: string[];
@@ -29,4 +31,4 @@ export type Order = {
   total: number;
   items: Array<{ id: string; name: string; quantity: number }>;
 };
-export type Tab = 'Home' | 'Shop' | 'Supermarket' | 'Shops' | 'Cart' | 'Payment' | 'More' | 'Favorites' | 'Orders' | 'History' | 'Addresses' | 'Account' | 'Customer Care' | 'Add Item';
+export type Tab = 'Home' | 'Shop' | 'Supermarket' | 'Shops' | 'Cart' | 'Payment' | 'More' | 'Favorites' | 'Orders' | 'History' | 'Addresses' | 'Account' | 'Customer Care' | 'Add Item' | 'Shop request' | 'Delivery request';

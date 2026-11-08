@@ -3,8 +3,8 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import type { Product } from '../data/types';
 import { productImages } from '../data/product-images';
 
-export default function ProductPhoto({ product }: { product: Product }) {
-  const uri = product.images?.[0] || productImages[product.id];
+export default function ProductPhoto({ product, imageUri }: { product: Product; imageUri?: string }) {
+  const uri = imageUri ?? (product.images?.[0] || productImages[product.id]);
   const [failed, setFailed] = useState<string | undefined>();
   return <View style={styles.frame}>
     {uri && failed !== uri ? <Image source={{ uri }} resizeMode="contain" style={styles.image} accessibilityLabel={product.name} onError={() => setFailed(uri)} /> : <Text style={styles.fallback}>Image unavailable</Text>}

@@ -11,6 +11,7 @@ export type ServerProduct = {
   stock: number;
   isFeatured: boolean;
   isActive: boolean;
+  shop?: unknown;
 };
 export type ProductPage = { products: ServerProduct[]; total: number; page: number; pages: number };
 

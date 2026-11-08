@@ -13,14 +13,14 @@ type ProductCardProps = {
   onOpen: (product: Product) => void;
   onToggleFavorite: (id: string) => void;
   onAdd: (product: Product) => void;
-  getStore: (id: Product['store']) => Store;
   money: (amount: number) => string;
+  twoColumns?: boolean;
 };
 
-export function ProductCard({ product, styles, favorites, onOpen, onToggleFavorite, onAdd, getStore, money }: ProductCardProps) {
+export function ProductCard({ product, styles, favorites, onOpen, onToggleFavorite, onAdd, money, twoColumns = false }: ProductCardProps) {
   const isFavorite = favorites.includes(product.id);
   return (
-    <View style={styles.productCard}>
+    <View style={[styles.productCard, twoColumns && { width: '48%', flexBasis: '48%', flexGrow: 0, flexShrink: 0, maxWidth: undefined }]}>
       <View>
         <Pressable onPress={() => onOpen(product)} accessibilityRole="button" accessibilityLabel={`View ${product.name}`}>
           <View style={[styles.productArt, { backgroundColor: product.color ?? '#FFF0CF' }]}>
@@ -36,17 +36,16 @@ export function ProductCard({ product, styles, favorites, onOpen, onToggleFavori
         <Text style={styles.productCategory}>{product.category.toUpperCase()}  ·  ★ {product.rating ?? 'New'}</Text>
         <TouchableOpacity onPress={() => onOpen(product)}><Text numberOfLines={1} style={styles.productName}>{product.name}</Text></TouchableOpacity>
         <Text style={styles.productPrice}>{money(product.price)}</Text>
-        <Text style={styles.stockLine}>Available at {getStore(product.store).name}</Text>
         <TouchableOpacity disabled={product.stock === 0} style={[styles.addButton, product.stock === 0 && { opacity: 0.5 }]} onPress={() => onAdd(product)} accessibilityRole="button" accessibilityState={{ disabled: product.stock === 0 }}><Text style={styles.addButtonText}>{product.stock === 0 ? 'Sold out' : '+  Add to cart'}</Text></TouchableOpacity>
       </View>
     </View>
   );
 }
 
-type ProductGridProps = Omit<ProductCardProps, 'product'> & { items: Product[] };
-export function ProductGrid({ items, ...cardProps }: ProductGridProps) {
+type ProductGridProps = Omit<ProductCardProps, 'product' | 'twoColumns'> & { items: Product[]; columns?: 2 };
+export function ProductGrid({ items, columns, ...cardProps }: ProductGridProps) {
   if (items.length === 0) return <View style={cardProps.styles.emptyState}><Text style={cardProps.styles.emptyEmoji}>🔎</Text><Text style={cardProps.styles.emptyTitle}>No gadgets found</Text><Text style={cardProps.styles.muted}>Try a different search or filter.</Text></View>;
-  return <View style={cardProps.styles.productGrid}>{items.map((product) => <ProductCard key={product.id} product={product} {...cardProps} />)}</View>;
+  return <View style={[cardProps.styles.productGrid, columns === 2 && { gap: undefined, columnGap: '4%', rowGap: 14 }]}>{items.map((product) => <ProductCard key={product.id} product={product} {...cardProps} twoColumns={columns === 2} />)}</View>;
 }
 
 type PickerProps<T extends string> = { styles: Styles; value: T; onChange: (value: T) => void; options: readonly T[] };
@@ -55,5 +54,5 @@ export function StorePicker({ styles, stores, value, onChange }: { styles: Style
 }
 
 export function CategoryPicker<T extends string>({ styles, value, onChange, options }: PickerProps<T>) {
-  return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>{options.map((name) => <TouchableOpacity key={name} onPress={() => onChange(name)} style={[styles.chip, value === name && styles.chipActive]} accessibilityRole="button" accessibilityState={{ selected: value === name }}><Text style={[styles.chipText, value === name && styles.chipTextActive]}>{name}</Text></TouchableOpacity>)}</ScrollView>;
+  return <ScrollView horizontal keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>{options.map((name) => <TouchableOpacity key={name} onPress={() => onChange(name)} style={[styles.chip, value === name && styles.chipActive]} accessibilityRole="button" accessibilityState={{ selected: value === name }}><Text style={[styles.chipText, value === name && styles.chipTextActive]}>{name}</Text></TouchableOpacity>)}</ScrollView>;
 }

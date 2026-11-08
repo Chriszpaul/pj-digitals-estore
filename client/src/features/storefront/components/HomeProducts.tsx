@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { useStoreTheme } from '../ThemeContext';
-import { getStore, money } from '../data/catalog';
+import { money } from '../data/catalog';
 import type { Product } from '../data/types';
 import ProductPhoto from './ProductPhoto';
 import Text from './AppText';
@@ -66,7 +66,7 @@ export default function HomeProducts({ products, onOpen }: { products: Product[]
             <View style={{ flexDirection: 'row', gap: 8 }}>
               {page.map(product => <Pressable key={product.id} accessibilityRole="button" accessibilityLabel={`View ${product.name}, ${money(product.price)}`} onPress={() => onOpen(product)} style={[s.card, { flex: 1, minWidth: 0, backgroundColor: palette.surface, borderColor: palette.border }]}>
                 <View style={{ height: width >= 650 ? 105 : 84, padding: 5 }}><ProductPhoto product={product} /></View>
-                <View style={{ paddingHorizontal: 8, paddingTop: 4, paddingBottom: 8 }}><Text numberOfLines={1} style={[s.kicker, { color: palette.gold }]}>{product.category.toUpperCase()}</Text><Text numberOfLines={2} style={[s.product, { color: palette.text, minHeight: 34 }]}>{product.name}</Text><Text numberOfLines={1} style={[s.subtitle, { color: palette.muted }]}>{getStore(product.store).name}</Text><View style={s.priceRow}><Text style={[s.price, { color: palette.primaryText }]}>{money(product.price)}</Text><Text style={{ color: palette.muted, fontSize: 10 }}>★ {product.rating}</Text></View><Text style={[s.link, { color: palette.primaryText }]}>{product.stock === 0 ? 'Out of stock · View →' : 'View product →'}</Text></View>
+                <View style={{ paddingHorizontal: 8, paddingTop: 4, paddingBottom: 8 }}><Text numberOfLines={1} style={[s.kicker, { color: palette.gold }]}>{product.category.toUpperCase()}</Text><Text numberOfLines={2} style={[s.product, { color: palette.text, minHeight: 34 }]}>{product.name}</Text><View style={s.priceRow}><Text style={[s.price, { color: palette.primaryText }]}>{money(product.price)}</Text><Text style={{ color: palette.muted, fontSize: 10 }}>★ {product.rating}</Text></View><Text style={[s.link, { color: palette.primaryText }]}>{product.stock === 0 ? 'Out of stock · View →' : 'View product →'}</Text></View>
               </Pressable>)}
               {page.length === 1 ? <View style={{ flex: 1 }} /> : null}
             </View>

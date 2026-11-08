@@ -1,4 +1,4 @@
-import type { CategoryFilter, Product, Store, StoreId } from './types';
+import type { Product, Store, StoreId } from './types';
 
 export type Palette = {
   background: string; surface: string; text: string; muted: string; primary: string;
@@ -8,27 +8,27 @@ export type Palette = {
 
 const palettes: { light: Palette; dark: Palette } = {
   dark: {
-    background: '#211F2A', surface: '#2D2938', text: '#F9F4FF', muted: '#C2BBD0',
-    primary: '#7042B8', primaryText: '#D4BEFF', soft: '#3B314F', tint: '#47395C',
-    heroAccent: 'rgba(208,183,255,0.20)', border: '#68517F', strong: '#3B2A52',
-    glass: '#2D2938', gold: '#CCAFF2', terracotta: '#FFADAB', onPrimary: '#FFFFFF', gradient: ['#EEE4FF', '#E5D4FA', '#DBC3F5', '#D3B7F0', '#C9A9EB', '#C29CE7', '#B990DF'],
+    background: '#343248', surface: '#423E58', text: '#F6F3FF', muted: '#D5CEE6',
+    primary: '#695094', primaryText: '#E1D5FF', soft: '#4B4563', tint: '#554E70',
+    heroAccent: 'rgba(181,159,230,0.20)', border: '#7B6E97', strong: '#434764',
+    glass: '#423E58', gold: '#D3C2F9', terracotta: '#FFB3B9', onPrimary: '#FFFFFF', gradient: ['#F1EBFA', '#E9E2F6', '#E0DAF1', '#D7D3ED', '#CDCBE8', '#C3C1E2', '#BCB3DC'],
   },
   light: {
-    background: '#FAF8FF', surface: '#FFFFFF', text: '#30243F', muted: '#756980',
-    primary: '#7042B8', primaryText: '#603396', soft: '#F0E9FA', tint: '#E8D9F8',
-    heroAccent: 'rgba(208,183,255,0.20)', border: '#D8C6ED', strong: '#42305A',
-    glass: 'rgba(253,250,255,0.97)', gold: '#7A479F', terracotta: '#B74658', onPrimary: '#FFFFFF', gradient: ['#EEE4FF', '#E5D4FA', '#DBC3F5', '#D3B7F0', '#C9A9EB', '#C29CE7', '#B990DF'],
+    background: '#F8F7FC', surface: '#FFFFFF', text: '#302843', muted: '#716781',
+    primary: '#4B3575', primaryText: '#4B3575', soft: '#F0EDF8', tint: '#E7DFF4',
+    heroAccent: 'rgba(170,150,211,0.20)', border: '#D8D0E7', strong: '#293653',
+    glass: 'rgba(250,248,255,0.97)', gold: '#7756A7', terracotta: '#B34660', onPrimary: '#FFFFFF', gradient: ['#F1EBFA', '#E9E2F6', '#E0DAF1', '#D7D3ED', '#CDCBE8', '#C3C1E2', '#BCB3DC'],
   },
 };
 
-const categories: CategoryFilter[] = ['Electronics', 'Textiles', 'Home Appliances', 'Computer Items'];
+const categories = ['Electronics', 'Textiles', 'Home Appliances', 'Computer Items', 'Bakery'] as const;
 const sortOptions = ['Featured', 'Price: low to high', 'Price: high to low'];
 const stores: Store[] = [
   { id: 'all', name: 'All local shops', area: 'Browse all participating stores', icon: '⌂' },
   { id: 'catalogue', name: 'NearBy catalogue', area: 'Shop and delivery area not supplied by the server', icon: '▦' },
-  { id: 'vv', name: 'VV Electricals', area: 'Thodupuzha · Electronics', icon: '✳', category: 'Electronics', location: 'Thodupuzha, Idukki' },
-  { id: 'sr', name: 'SR Electrics', area: 'Muttom · Electronics', icon: 'ϟ', category: 'Electronics', location: 'Muttom, Idukki' },
-  { id: 'textiles', name: 'Thodupuzha Textiles', area: 'Thodupuzha · Textiles & clothing', icon: '▤', category: 'Textiles', location: 'Thodupuzha, Idukki' },
+  { id: 'vv', name: 'VV Electricals', area: 'Thodupuzha · Electronics', icon: '✳', category: 'Electronics', location: 'Thodupuzha' },
+  { id: 'sr', name: 'SR Electrics', area: 'Muttom · Electronics', icon: 'ϟ', category: 'Electronics', location: 'Muttom' },
+  { id: 'textiles', name: 'Thodupuzha Textiles', area: 'Thodupuzha · Textiles & clothing', icon: '▤', category: 'Textiles', location: 'Thodupuzha' },
 ];
 
 const starterProducts: Product[] = [

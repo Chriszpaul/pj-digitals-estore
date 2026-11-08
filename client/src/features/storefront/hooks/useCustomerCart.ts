@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCustomerAuth } from '@/features/auth/CustomerAuthContext';
 import { createCartApi, type UserCart } from '@/services/cart';
 import type { Product } from '../data/types';
+import { validatePurchaseQuantity } from '../utils/productOptions';
 
 export type BasketLine = { key: string; product: Product; quantity: number; price: number; size?: string; pending?: boolean };
 const lineKey = (id: string, size?: string) => `${id}:${size || ''}`;
@@ -88,16 +89,17 @@ export function useCustomerCart(products: Product[]) {
     } finally { if (currentOwner.current === requestOwner) { lock.current = false; setBusy(false); } }
   }, [owner, loadedOwner, error]);
 
-  async function add(product: Product, size?: string) {
+  async function add(product: Product, size?: string, amount = 1) {
     if (!ready) throw new Error('Your account is still loading. Please try again.');
     if (product.stock === 0) throw new Error('This item is sold out.');
     if (product.sizes?.length && !size) throw new Error('Choose a size on the product page.');
-    const inCart = lines.filter(line => line.product.id === product.id).reduce((sum, line) => sum + line.quantity, 0);
-    if (inCart + 1 > (product.stock ?? Infinity)) throw new Error('Not enough stock is available.');
-    if (owner) return mutate(() => api.addItem(product.id, 1, size));
+    const currentLines = owner ? lines : guestRef.current;
+    const inCart = currentLines.filter(line => line.product.id === product.id).reduce((sum, line) => sum + line.quantity, 0);
+    validatePurchaseQuantity(amount, product.stock, inCart);
+    if (owner) return mutate(() => api.addItem(product.id, amount, size));
     const key = lineKey(product.id, size);
     const existing = guestRef.current.find(line => line.key === key);
-    const quantity = (existing?.quantity || 0) + 1;
+    const quantity = (existing?.quantity || 0) + amount;
     if (product.stock !== undefined && quantity > product.stock) throw new Error('Not enough stock is available.');
     updateGuest(items => [...items.filter(line => line.key !== key), { key, product, quantity, price: product.price, size }]);
   }
