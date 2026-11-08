@@ -20,6 +20,10 @@ import {
   VEHICLE_TYPES,
 } from "../types/index.js";
 import { sendError } from "../utils/http.js";
+import { allowCod } from "../utils/config.js";
+import { razorpayConfigured } from "../utils/razorpay.js";
+import { allowCod } from "../utils/config.js";
+import { razorpayConfigured } from "../utils/razorpay.js";
 
 // GET /api/me
 // Everything an app needs right after Clerk login: the DB user, their role,
@@ -81,6 +85,12 @@ export const getMeta = (_req: Request, res: Response) => {
       orderStatuses: ORDER_STATUSES,
       paymentStatuses: PAYMENT_STATUSES,
       paymentMethods: PAYMENT_METHODS,
+      // what the storefront may offer at checkout
+      cashOnDelivery: allowCod(),
+      onlinePayments: razorpayConfigured(),
+      // which options the checkout screen should offer
+      cashOnDelivery: allowCod(),
+      onlinePayments: razorpayConfigured(),
       deliveryStatuses: DELIVERY_STATUSES,
       shopStatuses: SHOP_STATUSES,
       partnerStatuses: PARTNER_STATUSES,
