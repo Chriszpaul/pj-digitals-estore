@@ -26,10 +26,10 @@ export default function AnimatedAd({ children, count = 3 }: { children: (index: 
     const animation = Animated.sequence([
       Animated.delay(300),
       Animated.timing(lift, { toValue: 1, duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: true, isInteraction: false }),
-      Animated.delay(900),
+      Animated.delay(2000),
       Animated.timing(lift, { toValue: 0, duration: 400, easing: Easing.inOut(Easing.quad), useNativeDriver: true, isInteraction: false }),
       Animated.delay(300),
-      Animated.timing(slide, { toValue: 1, duration: 650, easing: Easing.inOut(Easing.cubic), useNativeDriver: true, isInteraction: false }),
+      Animated.timing(slide, { toValue: 1, duration: 850, easing: Easing.inOut(Easing.cubic), useNativeDriver: true, isInteraction: false }),
     ]);
     animation.start(({ finished }) => {
       if (finished) {

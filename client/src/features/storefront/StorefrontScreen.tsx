@@ -12,6 +12,7 @@ import HomeShops from './components/HomeShops';
 import HomeProducts from './components/HomeProducts';
 import InterfaceIcon from './components/InterfaceIcon';
 import AnimatedAd from './components/AnimatedAd';
+import HomePromotion, { homePromotions } from './components/HomePromotion';
 import ProductReviews, { type ProductReview } from './components/ProductReviews';
 import ProductPhoto from './components/ProductPhoto';
 import ProductGallery from './components/ProductGallery';
@@ -195,25 +196,14 @@ export default function StorefrontScreen() {
   function placeDemoOrder(): void { notify('Ordering and payment APIs are not available yet. Your saved cart has not been changed.'); }
 
   function renderHome() {
-    const ads = [
-      { title: 'Power your\neveryday.', copy: 'Explore electronics from shops in your neighbourhood.', label: 'Explore electronics', search: 'Electronics' },
-      { title: 'Style for\nevery day.', copy: 'Discover clothing, everyday essentials and soft cotton from local shops.', label: 'Discover textiles', search: 'Textiles' },
-      { title: 'Your town.\nYour favourites.', copy: 'Shop local finds with delivery within 12 hours.', label: 'Explore local finds', search: '' },
-    ];
     return <>
-      <AnimatedAd key={refreshVersion}>
-      {(adIndex) => <>
-      <LinearGradient colors={palette.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.hero, styles.featuredShopAd]}>
-        <View style={styles.adContent}>
-          <Text style={[styles.eyebrow, styles.adEyebrow]}>DEMO AD · {adIndex + 1} / 3</Text>
-          <Text style={styles.adTitle}>{ads[adIndex].title}</Text>
-          <Text style={styles.adDescription}>{ads[adIndex].copy}</Text>
-          <TouchableOpacity style={[styles.heroButton, styles.adAction]} onPress={() => { setSupermarketCategory(null); setSupermarketSearch(ads[adIndex].search); setTab('Supermarket'); pageScroll.current?.scrollTo({ y: 0, animated: false }); }} accessibilityRole="button"><Text style={styles.heroButtonText}>{ads[adIndex].label} →</Text></TouchableOpacity>
-        </View>
-        <View style={styles.adBadge} pointerEvents="none"><BrandLogo size={desktop ? 100 : 30} /><Text style={styles.adBadgeText}>LOCAL</Text></View>
-        <View style={styles.adGlow} />
-      </LinearGradient>
-      </>}
+      <AnimatedAd key={refreshVersion} count={homePromotions.length}>
+        {(adIndex) => <HomePromotion promotion={homePromotions[adIndex]} desktop={desktop} onShop={() => {
+          setSupermarketCategory(null);
+          setSupermarketSearch('');
+          setTab('Supermarket');
+          pageScroll.current?.scrollTo({ y: 0, animated: false });
+        }} />}
       </AnimatedAd>
       {desktop ? <>
         <View style={styles.sectionHeading}><View><Text style={styles.sectionTitle}>Find your next favourite</Text><Text style={styles.pageIntro}>Explore the latest products in the NearBy catalogue.</Text></View></View>
@@ -278,7 +268,7 @@ export default function StorefrontScreen() {
       </View>
       <SearchSuggestions query={supermarketSearch} products={categoryProducts} onSelect={setSupermarketSearch} includeShopNames={false} />
       <View style={[styles.sectionHeading, { gap: 12 }]}><Text accessibilityRole="header" style={[styles.sectionTitle, { flex: 1 }]}>All products</Text><CategoryMenu options={categories} value={supermarketCategory} onChange={setSupermarketCategory} /></View>
-      {results.length ? <ProductGrid columns={2} items={results} styles={styles} favorites={favorites} onOpen={openProduct} onToggleFavorite={toggleFavorite} onAdd={addToCart} money={money} /> : <View style={styles.emptyState}><Text style={styles.emptyTitle}>No matching products</Text><Text style={styles.muted}>Try a different product or category.</Text><TouchableOpacity style={styles.secondaryButton} onPress={() => { setSupermarketSearch(''); setSupermarketCategory(null); }} accessibilityRole="button"><Text style={styles.secondaryButtonText}>Clear search and filter</Text></TouchableOpacity></View>}
+      {results.length ? <ProductGrid columns={desktop ? undefined : 2} items={results} styles={styles} favorites={favorites} onOpen={openProduct} onToggleFavorite={toggleFavorite} onAdd={addToCart} money={money} /> : <View style={styles.emptyState}><Text style={styles.emptyTitle}>No matching products</Text><Text style={styles.muted}>Try a different product or category.</Text><TouchableOpacity style={styles.secondaryButton} onPress={() => { setSupermarketSearch(''); setSupermarketCategory(null); }} accessibilityRole="button"><Text style={styles.secondaryButtonText}>Clear search and filter</Text></TouchableOpacity></View>}
     </>;
   }
 
