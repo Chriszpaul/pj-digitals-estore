@@ -1,4 +1,4 @@
-import type { CategoryFilter, Product, Store, StoreId } from './types';
+import type { Product, Store, StoreId } from './types';
 
 export type Palette = {
   background: string; surface: string; text: string; muted: string; primary: string;
@@ -21,7 +21,7 @@ const palettes: { light: Palette; dark: Palette } = {
   },
 };
 
-const categories: CategoryFilter[] = ['Electronics', 'Textiles', 'Home Appliances', 'Computer Items'];
+const categories = ['Electronics', 'Textiles', 'Home Appliances', 'Computer Items', 'Bakery'] as const;
 const sortOptions = ['Featured', 'Price: low to high', 'Price: high to low'];
 const stores: Store[] = [
   { id: 'all', name: 'All local shops', area: 'Browse all participating stores', icon: '⌂' },

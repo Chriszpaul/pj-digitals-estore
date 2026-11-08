@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getProduct, getProducts, type ServerProduct } from '@/services/products';
 import type { Product } from '../data/types';
+import { categories } from '../data/catalog';
 
 export function toStoreProduct(item: ServerProduct): Product {
+  const category = categories.find(value => value.toLowerCase() === item.category.trim().toLowerCase());
   return {
     id: item._id, name: item.name, description: item.description, price: item.price,
     stock: item.stock, images: item.images, sizes: item.sizes, serverCategory: item.category,
-    category: item.category === 'Laptop' ? 'Computer Items' : item.category === 'Other' ? 'Other' : 'Electronics',
+    category: category ?? (item.category === 'Laptop' ? 'Computer Items' : item.category === 'Other' ? 'Other' : 'Electronics'),
     store: 'catalogue', tag: item.isFeatured ? 'Featured' : undefined,
   };
 }
