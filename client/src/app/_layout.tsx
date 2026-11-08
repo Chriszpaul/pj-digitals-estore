@@ -8,6 +8,7 @@ import { StoreThemeProvider, useStoreTheme } from '@/features/storefront/ThemeCo
 import { ServerConnection } from '../components/ServerConnection';
 import { CustomerAuthProvider } from '../features/auth/CustomerAuthContext';
 import CustomerClerkProvider from '../features/auth/CustomerClerkProvider';
+import NotificationToast from '../components/NotificationToast';
 
 export default function RootLayout() {
   const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -26,5 +27,5 @@ function AppShell() {
       <ServerConnection><Stack screenOptions={{ headerShown: false }} /></ServerConnection>
     </Animated.View>
     <LaunchIntro transition={transition} />
-  </View></SafeAreaView>;
+  </View><NotificationToast /></SafeAreaView>;
 }
