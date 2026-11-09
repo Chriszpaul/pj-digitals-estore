@@ -11,7 +11,10 @@ const settlementSchema = new Schema(
     grossSales: Number, // sum of order subtotals (shop's goods)
     commissionRate: Number,
     commission: Number,
-    netPayable: Number, // grossSales - commission
+    adjustment: { type: Number, default: 0 }, // admin correction: + bonus / - deduction (refunds, penalties)
+    adjustmentNote: String,
+    netPayable: Number, // grossSales - commission + adjustment
+    payoutSnapshot: String, // where it was sent, e.g. "UPI: shop@upi"
     codAmount: Number, // of grossSales, collected as cash on delivery
     onlineAmount: Number, // of grossSales, collected online
     status: { type: String, enum: SETTLEMENT_STATUSES, default: "pending", index: true },

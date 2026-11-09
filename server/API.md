@@ -41,3 +41,51 @@ Apply with `POST /api/delivery/apply`; admin approves. Then:
 
 ## Admin app
 All under `/api/admin` (admin role): `stats`, `users`, `users/:id`, `users/:id/role`, `shops[/:id][/status]`, `delivery-partners[/:id][/status]`, `deliveries` (GET, POST assign, `PUT :id/cancel`), `ads` + `ads/:id/status`, `tickets` + `tickets/:id`, `payments`, `reports/sales`, `reports/shops`, `reports/reconciliation`, `orders/expire-unpaid`, `settlements` (list, create, get, update), `activity-logs`. Orders: `GET /api/orders/admin/all`, `PUT /api/orders/:id/status`.
+
+---
+
+# v4 additions: ads placements, advanced payouts, admin "god mode"
+
+All admin routes need an admin token. Money is in ₹. Rates are fractions (0.05 = 5%).
+
+## Admin acts as a shop / driver
+Send `x-shop-id: <shopId>` on any `/api/shop/*` or product-create request, or `x-driver-id: <driverId>` on any `/api/delivery/*` request, with an admin token. The request then runs exactly as that shop/driver (even if not approved). Non-GET calls are written to the activity log.
+
+## Advertisements
+Placements: `home`, `catalogue`, `shops`, `product`.
+- `GET /api/ads?placement=home&location=Thodupuzha&shop=&limit=10` – approved, running ads of approved shops, sorted by `priority` desc. Ads saved before placements existed count as `home`.
+- `POST /api/ads/impressions` `{ids:[adId]}` – call once per page view with the ads shown (public).
+- `POST /api/ads/:id/click` – call when an ad is clicked (public).
+- Shop owner `POST/PUT /api/shop/ads` accept `placements` (array / JSON / comma list). `product` must belong to the shop. `GET /api/shop/ads` rows include `impressions`, `clicks`.
+- Admin: `POST /api/admin/ads` (multipart, `shop` required, `status` default `approved`, `priority`), `PUT /api/admin/ads/:id` (any field incl. `status`, `shop`, `priority`, `placements`; rejecting needs `reason`), `DELETE /api/admin/ads/:id`, plus existing `GET /api/admin/ads`, `PUT /api/admin/ads/:id/status`.
+
+## Shop payouts
+Commission = per-shop `commissionRate` if set, else platform `commissionRate` setting.
+Shop owner:
+- `GET /api/shop/payouts` – rate, unsettled `{orders,grossSales,commission,net,codAmount,onlineAmount,since}`, `awaitingDelivery`, `pendingPayout`, `paidOut`, `lifetime`, `payoutAccount` (masked), `requests`, `canRequest`.
+- `PUT /api/shop/payout-account` `{method:"upi",upiId}` or `{method:"bank",accountHolder,accountNumber,ifsc,bankName?}`.
+- `POST /api/shop/payout-requests` `{note?}`; `GET /api/shop/settlements`, `GET /api/shop/settlements/:id` (with orders), `GET /api/shop/settlements/export.csv`.
+Admin:
+- `GET /api/admin/payouts/summary` – `{owed:[per shop], totals}`.
+- `GET /api/admin/payouts/preview?shopId=&to=&commissionRate=` – what a settlement would contain (+ payout account).
+- `POST /api/admin/settlements` `{shopId,to?,commissionRate?,adjustment?,adjustmentNote?,notes?}`; `POST /api/admin/settlements/bulk` `{shopIds?,to?}` (default every shop owed money).
+- `PUT /api/admin/settlements/:id` `{status:"paid"|"void", reference?, notes?, adjustment?, adjustmentNote?, reason?}` – pending only; `void` frees the orders again.
+- `GET /api/admin/settlements/export.csv`, `GET /api/admin/payments/export.csv?from=&to=`.
+- `GET /api/admin/payout-requests?status=open`, `PUT /api/admin/payout-requests/:id` `{status:"rejected",note}` (creating the settlement fulfils open requests).
+Settlement status: `pending | paid | void`.
+
+## Driver payouts
+Delivery fee (`driverFee` setting) is locked onto the delivery when it is marked delivered.
+- Driver: `GET /api/delivery/earnings` (`today`, `last7Days`, `total`, `unsettled{earnings,codCollected,net}`, `settlements`), `PUT /api/delivery/payout-account`.
+- Admin: `GET /api/admin/driver-payouts/summary` (net>0 we pay, net<0 driver hands over cash), `/preview?driverId=`, `POST /api/admin/driver-payouts` `{driverId,adjustment?,adjustmentNote?,reference?,notes?}`, `GET /api/admin/driver-payouts`, `/export.csv`.
+
+## Admin management
+- Shops: `POST /api/admin/shops` (multipart; `ownerEmail` or `ownerId` of the owner, name, phone, location, optional commissionRate, payout…; created approved, owner becomes shop_owner), `PUT /api/admin/shops/:id` (any field, `status`, `commissionRate`, `payout`, `adminNotes`, hand over with `ownerEmail`/`ownerId`), `DELETE /api/admin/shops/:id` (only if it never had orders).
+- `PUT /api/admin/products/:id/assign` `{shopId|null}`; products can also be created for any shop via `shop` or `x-shop-id`.
+- Drivers: `POST /api/admin/delivery-partners` (multipart; `email`/`userId`, fullName, phone…; created approved), `PUT /api/admin/delivery-partners/:id`.
+- Users: `PUT /api/admin/users/:id/active` `{isActive}` (blocked users get 403 everywhere).
+- Orders: `PUT /api/orders/:id/status` (existing), `PUT /api/admin/orders/:id/payment` `{paymentStatus,note?}`.
+- Deliveries: `PUT /api/admin/deliveries/:id/status` `{status: picked_up|on_the_way|delivered|failed, note?}`.
+- `GET/PUT /api/admin/settings` (commissionRate, driverFee, shippingCost, freeShippingThreshold, taxRate, allowCod, lowStockLevel, announcement, supportPhone, supportEmail); public values appear in `/api/meta`.
+- `POST /api/admin/broadcast` `{title,body?,audience:all|customers|shops|drivers|user,userId?}`.
+- `GET /api/admin/overview` – today's orders/revenue, COD held by drivers, money awaiting settlement, ad totals, top shops.

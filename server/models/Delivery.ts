@@ -42,6 +42,8 @@ const deliverySchema = new Schema(
     pickedUpAt: Date,
     deliveredAt: Date,
     failureReason: String,
+    driverFee: { type: Number, default: 0 }, // earned by the driver on delivery
+    driverSettlement: { type: Schema.Types.ObjectId, ref: "DriverSettlement", index: true },
   },
   { timestamps: true },
 );

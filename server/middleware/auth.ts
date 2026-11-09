@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { clerkClient } from "@clerk/express";
 import User from "../models/User.js";
+import { logActivity } from "../utils/activity.js";
 import Shop from "../models/Shop.js";
 import DeliveryPartner from "../models/DeliveryPartner.js";
 import { ROLES } from "../types/index.js";
@@ -49,6 +50,13 @@ export const protect = async (
       );
     }
 
+    if (user && user.isActive === false) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been disabled. Please contact support.",
+      });
+    }
+
     req.user = user;
     next();
   } catch (error) {
@@ -91,6 +99,23 @@ export const loadShop =
   (requireApproved = true) =>
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      // Admins can act as any shop with the `x-shop-id` header (every write is logged)
+      const actAs = req.user.role === "admin" ? req.header("x-shop-id") : undefined;
+      if (actAs) {
+        if (!/^[a-f\d]{24}$/i.test(actAs)) {
+          return res.status(400).json({ success: false, message: "Invalid x-shop-id" });
+        }
+        const target: any = await Shop.findById(actAs);
+        if (!target) {
+          return res.status(404).json({ success: false, message: "Shop not found" });
+        }
+        req.shop = target;
+        if (req.method !== "GET") {
+          await logActivity(req, "admin.act_as_shop", "Shop", target._id, { method: req.method, path: req.originalUrl });
+        }
+        return next();
+      }
+
       const shop: any = await Shop.findOne({ owner: req.user._id });
       if (!shop) {
         return res
@@ -118,6 +143,23 @@ export const loadDriver =
   (requireApproved = true) =>
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      // Admins can act as any driver with the `x-driver-id` header (every write is logged)
+      const actAs = req.user.role === "admin" ? req.header("x-driver-id") : undefined;
+      if (actAs) {
+        if (!/^[a-f\d]{24}$/i.test(actAs)) {
+          return res.status(400).json({ success: false, message: "Invalid x-driver-id" });
+        }
+        const target: any = await DeliveryPartner.findById(actAs);
+        if (!target) {
+          return res.status(404).json({ success: false, message: "Delivery partner not found" });
+        }
+        req.driver = target;
+        if (req.method !== "GET") {
+          await logActivity(req, "admin.act_as_driver", "DeliveryPartner", target._id, { method: req.method, path: req.originalUrl });
+        }
+        return next();
+      }
+
       const driver: any = await DeliveryPartner.findOne({ user: req.user._id });
       if (!driver) {
         return res.status(404).json({

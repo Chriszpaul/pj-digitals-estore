@@ -219,9 +219,10 @@ export const createProduct = async (req: Request, res: Response) => {
     if (isShopOwner(req)) {
       data.shop = req.shop._id; // forced - owners can't create for other shops
     } else {
-      // admin: optional shop, optional featured flag
-      if (req.body.shop) {
-        const shop = await Shop.findById(req.body.shop);
+      // admin: optional shop (or the shop they're acting as), optional featured flag
+      const shopRef = req.body.shop || req.header("x-shop-id");
+      if (shopRef) {
+        const shop = await Shop.findById(shopRef);
         if (!shop) {
           return res.status(400).json({ success: false, message: "Shop not found" });
         }

@@ -19,7 +19,7 @@ import {
   getTicket,
   replyToTicket,
 } from "../controllers/supportController.js";
-import { getPublicAds } from "../controllers/adController.js";
+import { getPublicAds, trackClick, trackImpressions } from "../controllers/adController.js";
 
 // /api/meta  (public)
 export const MetaRouter = express.Router();
@@ -28,6 +28,8 @@ MetaRouter.get("/", getMeta);
 // /api/ads  (public, running + approved ads)
 export const PublicAdsRouter = express.Router();
 PublicAdsRouter.get("/", getPublicAds);
+PublicAdsRouter.post("/impressions", trackImpressions);
+PublicAdsRouter.post("/:id/click", validateObjectId("id"), trackClick);
 
 // /api/me
 export const MeRouter = express.Router();

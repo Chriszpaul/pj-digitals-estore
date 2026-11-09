@@ -38,3 +38,11 @@
 - A payment that arrives after an unpaid order expired is recorded as paid on the cancelled order, so it shows up in the reconciliation report ("paid but cancelled") and admins are notified to refund it.
 - Shops no longer see or accept unpaid online orders, and are notified only once the payment succeeds.
 - `ALLOW_COD=false` hides cash on delivery. See `API.md` for the endpoint list.
+
+## v4 – ads placements, advanced payouts, admin "god mode"
+- Fixed: `controllers/meController.ts` in server-fixed-v3 had duplicate imports/keys (would fail `tsc`). Cleaned up.
+- Ads: placements (home / catalogue / shops / product), priority, impression + click tracking, only approved shops' ads are served; admin can create / edit / delete ads for any shop.
+- Payouts: per-shop commission override, payout accounts (UPI / bank) for shops and drivers, payout preview, bulk settle, adjustments, void, payout requests from shops, CSV exports, driver fee per delivery, driver earnings + COD remittance settlements.
+- Admin: create / edit / delete shops and drivers, hand a shop to a new owner, reassign products, block users, override payment and delivery status, runtime platform settings (commission, driver fee, shipping, tax, COD, announcement), broadcast notifications, overview money numbers.
+- Admin can act as any shop / driver with `x-shop-id` / `x-driver-id` (logged).
+See API.md ("v4 additions").

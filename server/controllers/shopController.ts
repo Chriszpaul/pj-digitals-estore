@@ -8,6 +8,7 @@ import { escapeRegex, sendError } from "../utils/http.js";
 import { destroyImages, uploadToCloudinary } from "../utils/cloudinaryUpload.js";
 import { attachDeliveries, transitionOrder } from "../utils/orderHelpers.js";
 import { notify, notifyAdmins } from "../utils/notify.js";
+import { getSettings } from "../utils/settings.js";
 
 const slugify = (name: string) =>
   name
@@ -218,7 +219,7 @@ export const getShopProducts = async (req: Request, res: Response) => {
     if (req.query.search) {
       query.name = new RegExp(escapeRegex(String(req.query.search).trim()), "i");
     }
-    if (req.query.lowStock === "true") query.stock = { $lte: Number(process.env.LOW_STOCK_LEVEL ?? 5) };
+    if (req.query.lowStock === "true") query.stock = { $lte: (await getSettings()).lowStockLevel };
     if (req.query.isActive === "true" || req.query.isActive === "false") {
       query.isActive = req.query.isActive === "true";
     }
@@ -366,7 +367,7 @@ export const getShopStats = async (req: Request, res: Response) => {
     const days = Math.min(365, Math.max(1, Number(req.query.days) || 30));
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     const shopId = req.shop._id;
-    const lowLevel = Number(process.env.LOW_STOCK_LEVEL ?? 5);
+    const lowLevel = (await getSettings()).lowStockLevel;
 
     const [totals, statusAgg, daily, topProducts, lowStock, productCount] = await Promise.all([
       Order.aggregate([

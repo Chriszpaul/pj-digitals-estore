@@ -23,7 +23,7 @@ import {
 } from "../utils/orderHelpers.js";
 import { notify } from "../utils/notify.js";
 import { logActivity } from "../utils/activity.js";
-import { allowCod } from "../utils/config.js";
+import { getSettings } from "../utils/settings.js";
 import { razorpayConfigured } from "../utils/razorpay.js";
 import { createCheckoutPayment } from "./paymentController.js";
 
@@ -140,7 +140,8 @@ export const createOrder = async (req: Request, res: Response) => {
         .json({ success: false, message: "Invalid payment method" });
     }
 
-    if (paymentMethod === "cod" && !allowCod()) {
+    const settings = await getSettings();
+    if (paymentMethod === "cod" && !settings.allowCod) {
       return res
         .status(400)
         .json({ success: false, message: "Cash on delivery is not available" });
@@ -248,7 +249,7 @@ export const createOrder = async (req: Request, res: Response) => {
         paymentMethod,
         paymentOption: String(req.body.paymentMethod || "cod").toLowerCase(),
         paymentStatus: "pending",
-        ...computeTotals(subtotal),
+        ...computeTotals(subtotal, settings),
         notes: req.body.notes,
         orderNumber: generateOrderNumber(),
       });

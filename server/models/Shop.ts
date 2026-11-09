@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { SERVICE_LOCATIONS, SHOP_STATUSES } from "../types/index.js";
+import { SERVICE_LOCATIONS, SHOP_STATUSES, PAYOUT_METHODS } from "../types/index.js";
 
 const shopSchema = new Schema(
   {
@@ -19,6 +19,18 @@ const shopSchema = new Schema(
     categories: [{ type: String }],
     openingHours: String,
     isOpen: { type: Boolean, default: true },
+    // per-shop commission override (0.05 = 5%). Empty = platform default from settings.
+    commissionRate: { type: Number, min: 0, max: 1 },
+    // where the shop is paid out
+    payout: {
+      method: { type: String, enum: PAYOUT_METHODS },
+      accountHolder: String,
+      accountNumber: String,
+      ifsc: String,
+      bankName: String,
+      upiId: String,
+    },
+    adminNotes: String,
     status: { type: String, enum: SHOP_STATUSES, default: "pending", index: true },
     statusReason: String,
     approvedAt: Date,

@@ -9,6 +9,8 @@ const userSchema = new mongoose.Schema<IUser>(
     clerkId: { type: String, unique: true, sparse: true },
     image: { type: String },
     role: { type: String, enum: ROLES, default: "user" },
+    // admins can block an account; blocked users get 403 on every request
+    isActive: { type: Boolean, default: true },
     // Expo push tokens for phone notification-bar alerts
     pushTokens: [{ type: String }],
   },

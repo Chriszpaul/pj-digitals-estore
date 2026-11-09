@@ -1,16 +1,19 @@
 import { round2 } from "./http.js";
+import type { PlatformSettings } from "./settings.js";
 
 /**
  * All pricing rules live here so the order total is always computed on the
- * server (never trusted from the client). Configure via env vars.
- *   SHIPPING_COST            flat shipping fee            (default 2)
- *   FREE_SHIPPING_THRESHOLD  subtotal for free shipping   (default 0 = off)
- *   TAX_RATE                 e.g. 0.18 for 18% GST        (default 0)
+ * server (never trusted from the client). The values come from the platform
+ * settings (editable by admins, with env variables as the defaults):
+ * shippingCost, freeShippingThreshold (0 = off) and taxRate (0.18 = 18%).
  */
-export const computeTotals = (subtotal: number) => {
-  const flat = Number(process.env.SHIPPING_COST ?? 2);
-  const threshold = Number(process.env.FREE_SHIPPING_THRESHOLD ?? 0);
-  const taxRate = Number(process.env.TAX_RATE ?? 0);
+export const computeTotals = (
+  subtotal: number,
+  settings: Pick<PlatformSettings, "shippingCost" | "freeShippingThreshold" | "taxRate">,
+) => {
+  const flat = Number(settings.shippingCost);
+  const threshold = Number(settings.freeShippingThreshold);
+  const taxRate = Number(settings.taxRate);
 
   const shippingCost =
     threshold > 0 && subtotal >= threshold ? 0 : Number.isFinite(flat) ? flat : 0;

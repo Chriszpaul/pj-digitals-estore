@@ -20,9 +20,7 @@ import {
   VEHICLE_TYPES,
 } from "../types/index.js";
 import { sendError } from "../utils/http.js";
-import { allowCod } from "../utils/config.js";
-import { razorpayConfigured } from "../utils/razorpay.js";
-import { allowCod } from "../utils/config.js";
+import { getSettings } from "../utils/settings.js";
 import { razorpayConfigured } from "../utils/razorpay.js";
 
 // GET /api/me
@@ -75,7 +73,8 @@ export const removePushToken = async (req: Request, res: Response) => {
 };
 
 // GET /api/meta  (public) - the shared enum values every app must agree on
-export const getMeta = (_req: Request, res: Response) => {
+export const getMeta = async (_req: Request, res: Response) => {
+  const settings = await getSettings().catch(() => null);
   res.json({
     success: true,
     data: {
@@ -85,12 +84,14 @@ export const getMeta = (_req: Request, res: Response) => {
       orderStatuses: ORDER_STATUSES,
       paymentStatuses: PAYMENT_STATUSES,
       paymentMethods: PAYMENT_METHODS,
-      // what the storefront may offer at checkout
-      cashOnDelivery: allowCod(),
-      onlinePayments: razorpayConfigured(),
       // which options the checkout screen should offer
-      cashOnDelivery: allowCod(),
+      cashOnDelivery: settings ? settings.allowCod : true,
       onlinePayments: razorpayConfigured(),
+      // shown on the storefront when an admin sets them
+      announcement: settings?.announcement ?? "",
+      supportPhone: settings?.supportPhone ?? "",
+      supportEmail: settings?.supportEmail ?? "",
+      freeShippingThreshold: settings?.freeShippingThreshold ?? 0,
       deliveryStatuses: DELIVERY_STATUSES,
       shopStatuses: SHOP_STATUSES,
       partnerStatuses: PARTNER_STATUSES,

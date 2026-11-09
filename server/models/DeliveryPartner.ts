@@ -16,6 +16,9 @@ const partnerSchema = new Schema(
     approvedAt: Date,
     approvedBy: { type: Schema.Types.ObjectId, ref: "User" },
     isAvailable: { type: Boolean, default: false },
+    // where the driver is paid
+    payout: { method: { type: String, enum: ["upi", "bank"] }, accountHolder: String, accountNumber: String, ifsc: String, upiId: String },
+    adminNotes: String,
     currentLocation: { lat: Number, lng: Number, updatedAt: Date },
     completedDeliveries: { type: Number, default: 0 },
   },

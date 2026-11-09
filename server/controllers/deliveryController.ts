@@ -8,6 +8,7 @@ import { sendError } from "../utils/http.js";
 import { destroyImages, uploadToCloudinary } from "../utils/cloudinaryUpload.js";
 import { notify, notifyAdmins } from "../utils/notify.js";
 import { transitionOrder } from "../utils/orderHelpers.js";
+import { getSettings } from "../utils/settings.js";
 
 const ACTIVE = ["assigned", "accepted", "picked_up", "on_the_way"];
 
@@ -276,6 +277,7 @@ export const updateJobStatus = async (req: Request, res: Response) => {
       });
     } else if (status === "delivered") {
       job.deliveredAt = now;
+      job.driverFee = (await getSettings()).driverFee; // locked in at delivery time
       await transitionOrder(order, "delivered", "system"); // also marks COD as paid
       req.driver.completedDeliveries = (req.driver.completedDeliveries || 0) + 1;
       await req.driver.save();

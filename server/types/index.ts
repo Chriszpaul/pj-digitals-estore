@@ -43,7 +43,11 @@ export const DELIVERY_STATUSES = [
 export const AD_STATUSES = ["draft", "pending", "approved", "rejected"] as const;
 export const TICKET_STATUSES = ["open", "in_progress", "resolved", "closed"] as const;
 export const TICKET_CATEGORIES = ["order", "payment", "delivery", "account", "shop", "other"] as const;
-export const SETTLEMENT_STATUSES = ["pending", "paid"] as const;
+export const SETTLEMENT_STATUSES = ["pending", "paid", "void"] as const;
+// where an advertisement may appear on the storefront
+export const AD_PLACEMENTS = ["home", "catalogue", "shops", "product"] as const;
+export const PAYOUT_METHODS = ["upi", "bank"] as const;
+export const PAYOUT_REQUEST_STATUSES = ["open", "fulfilled", "rejected"] as const;
 export const VEHICLE_TYPES = ["bike", "scooter", "bicycle", "car", "van", "other"] as const;
 
 export type Role = (typeof ROLES)[number];
